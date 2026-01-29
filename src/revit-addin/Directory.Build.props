@@ -1,0 +1,26 @@
+<Project>
+  <PropertyGroup>
+    <RevitVersion Condition="'$(RevitVersion)' == ''">2025</RevitVersion>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
+    <Platforms>x64</Platforms>
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+  </PropertyGroup>
+
+  <!-- Version-specific defines -->
+  <PropertyGroup Condition="'$(RevitVersion)' == '2025'">
+    <DefineConstants>$(DefineConstants);REVIT2025</DefineConstants>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(RevitVersion)' == '2026'">
+    <DefineConstants>$(DefineConstants);REVIT2026</DefineConstants>
+  </PropertyGroup>
+
+  <!-- Revit API references -->
+  <PropertyGroup>
+    <RevitApiPath Condition="'$(RevitApiPath)' == '' AND Exists('C:\Program Files\Autodesk\Revit $(RevitVersion)')">C:\Program Files\Autodesk\Revit $(RevitVersion)</RevitApiPath>
+    <RevitApiPath Condition="'$(RevitApiPath)' == ''">$(MSBuildThisFileDirectory)lib\Revit$(RevitVersion)</RevitApiPath>
+  </PropertyGroup>
+</Project>

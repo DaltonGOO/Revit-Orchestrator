@@ -1,0 +1,71 @@
+{
+  "name": "flow.create_walls_from_lines",
+  "adapter": "workflow",
+  "description": "Creates multiple walls from a list of line segments. Each line is defined by a start and end point. All walls share the same height and wall type.",
+  "parameters": {
+    "type": "object",
+    "properties": {
+      "lines": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "start": {
+              "type": "array",
+              "items": { "type": "number" },
+              "minItems": 3,
+              "maxItems": 3
+            },
+            "end": {
+              "type": "array",
+              "items": { "type": "number" },
+              "minItems": 3,
+              "maxItems": 3
+            }
+          },
+          "required": ["start", "end"]
+        },
+        "description": "List of line segments, each with start and end [X, Y, Z] points in feet"
+      },
+      "height": {
+        "type": "number",
+        "minimum": 0,
+        "description": "Wall height in feet for all walls"
+      },
+      "wall_type": {
+        "type": "string",
+        "description": "Name of the wall type to use for all walls"
+      }
+    },
+    "required": ["lines", "height"]
+  },
+  "returns": {
+    "type": "object",
+    "properties": {
+      "created_count": { "type": "integer" },
+      "element_ids": {
+        "type": "array",
+        "items": { "type": "integer" }
+      },
+      "errors": {
+        "type": "array",
+        "items": { "type": "string" }
+      }
+    }
+  },
+  "examples": [
+    {
+      "description": "Create a rectangular room from 4 wall segments",
+      "args": {
+        "lines": [
+          { "start": [0, 0, 0], "end": [20, 0, 0] },
+          { "start": [20, 0, 0], "end": [20, 15, 0] },
+          { "start": [20, 15, 0], "end": [0, 15, 0] },
+          { "start": [0, 15, 0], "end": [0, 0, 0] }
+        ],
+        "height": 10.0,
+        "wall_type": "Generic - 200mm"
+      }
+    }
+  ]
+}

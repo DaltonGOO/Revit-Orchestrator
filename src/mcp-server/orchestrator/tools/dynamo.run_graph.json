@@ -1,0 +1,36 @@
+{
+  "name": "dynamo.run_graph",
+  "adapter": "dynamo",
+  "description": "Runs a Dynamo graph (.dyn file) within the active Revit session. Input parameters can be passed to override Dynamo input nodes.",
+  "parameters": {
+    "type": "object",
+    "properties": {
+      "graph_path": {
+        "type": "string",
+        "description": "Absolute path to the Dynamo graph file (.dyn)"
+      },
+      "inputs": {
+        "type": "object",
+        "description": "Key-value pairs mapping Dynamo input node names to their values",
+        "additionalProperties": true
+      }
+    },
+    "required": ["graph_path"]
+  },
+  "returns": {
+    "type": "object",
+    "properties": {
+      "outputs": { "type": "object" },
+      "message": { "type": "string" }
+    }
+  },
+  "examples": [
+    {
+      "description": "Run a graph that places furniture",
+      "args": {
+        "graph_path": "C:\\DynamoGraphs\\place_furniture.dyn",
+        "inputs": { "Room Number": "101", "Furniture Type": "Desk" }
+      }
+    }
+  ]
+}

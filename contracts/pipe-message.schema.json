@@ -1,0 +1,99 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://revit-orchestrator.dev/schemas/pipe-message.schema.json",
+  "title": "Pipe Message",
+  "description": "Schema for messages exchanged over the named pipe",
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "UUIDv4 unique to this message"
+    },
+    "type": {
+      "type": "string",
+      "enum": ["tool_call", "tool_result", "ping", "pong", "error"],
+      "description": "Message type"
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO-8601 timestamp"
+    },
+    "payload": {
+      "type": "object",
+      "description": "Type-specific payload"
+    }
+  },
+  "required": ["id", "type", "timestamp", "payload"],
+  "additionalProperties": false,
+  "oneOf": [
+    {
+      "properties": {
+        "type": { "const": "tool_call" },
+        "payload": {
+          "type": "object",
+          "properties": {
+            "tool_name": { "type": "string" },
+            "args": { "type": "object" }
+          },
+          "required": ["tool_name", "args"]
+        }
+      }
+    },
+    {
+      "properties": {
+        "type": { "const": "tool_result" },
+        "payload": {
+          "type": "object",
+          "properties": {
+            "call_id": { "type": "string", "format": "uuid" },
+            "success": { "type": "boolean" },
+            "data": { "type": "object" },
+            "error": {
+              "oneOf": [
+                { "type": "null" },
+                {
+                  "type": "object",
+                  "properties": {
+                    "code": { "type": "string" },
+                    "message": { "type": "string" }
+                  },
+                  "required": ["code", "message"]
+                }
+              ]
+            },
+            "duration_ms": { "type": "integer", "minimum": 0 }
+          },
+          "required": ["call_id", "success", "data", "duration_ms"]
+        }
+      }
+    },
+    {
+      "properties": {
+        "type": { "const": "ping" },
+        "payload": { "type": "object", "maxProperties": 0 }
+      }
+    },
+    {
+      "properties": {
+        "type": { "const": "pong" },
+        "payload": { "type": "object", "maxProperties": 0 }
+      }
+    },
+    {
+      "properties": {
+        "type": { "const": "error" },
+        "payload": {
+          "type": "object",
+          "properties": {
+            "code": { "type": "string" },
+            "message": { "type": "string" },
+            "call_id": { "type": "string", "format": "uuid" }
+          },
+          "required": ["code", "message"]
+        }
+      }
+    }
+  ]
+}

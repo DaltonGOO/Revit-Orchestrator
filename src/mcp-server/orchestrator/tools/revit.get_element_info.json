@@ -1,0 +1,46 @@
+{
+  "name": "revit.get_element_info",
+  "adapter": "revit",
+  "description": "Retrieves detailed information about a Revit element by its element ID, including category, type, parameters, and geometry bounds.",
+  "parameters": {
+    "type": "object",
+    "properties": {
+      "element_id": {
+        "type": "integer",
+        "description": "The Revit element ID to look up"
+      },
+      "include_parameters": {
+        "type": "boolean",
+        "description": "Whether to include all element parameters in the response",
+        "default": true
+      },
+      "include_geometry": {
+        "type": "boolean",
+        "description": "Whether to include bounding box geometry",
+        "default": false
+      }
+    },
+    "required": ["element_id"]
+  },
+  "returns": {
+    "type": "object",
+    "properties": {
+      "element_id": { "type": "integer" },
+      "category": { "type": "string" },
+      "type_name": { "type": "string" },
+      "level": { "type": "string" },
+      "parameters": { "type": "object" },
+      "bounding_box": { "type": "object" }
+    }
+  },
+  "examples": [
+    {
+      "description": "Get basic info about a wall element",
+      "args": { "element_id": 12345 }
+    },
+    {
+      "description": "Get element info with geometry",
+      "args": { "element_id": 12345, "include_parameters": true, "include_geometry": true }
+    }
+  ]
+}

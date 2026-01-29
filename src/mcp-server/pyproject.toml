@@ -1,0 +1,27 @@
+[project]
+name = "revit-orchestrator"
+version = "0.1.0"
+description = "MCP server for Revit Orchestrator"
+requires-python = ">=3.11"
+dependencies = [
+    "mcp[cli]>=1.0.0",
+    "jsonschema>=4.20.0",
+    "watchdog>=4.0.0",
+    "anthropic>=0.40.0",
+    "openai>=1.50.0",
+    "pywin32>=306; sys_platform == 'win32'",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0.0",
+    "pytest-asyncio>=0.23.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]

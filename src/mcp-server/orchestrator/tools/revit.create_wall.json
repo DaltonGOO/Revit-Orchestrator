@@ -1,0 +1,65 @@
+{
+  "name": "revit.create_wall",
+  "adapter": "revit",
+  "description": "Creates a wall in the active Revit document between two points with a specified height and optional wall type.",
+  "parameters": {
+    "type": "object",
+    "properties": {
+      "start_point": {
+        "type": "array",
+        "items": { "type": "number" },
+        "minItems": 3,
+        "maxItems": 3,
+        "description": "Start point [X, Y, Z] in feet"
+      },
+      "end_point": {
+        "type": "array",
+        "items": { "type": "number" },
+        "minItems": 3,
+        "maxItems": 3,
+        "description": "End point [X, Y, Z] in feet"
+      },
+      "height": {
+        "type": "number",
+        "minimum": 0,
+        "description": "Wall height in feet"
+      },
+      "wall_type": {
+        "type": "string",
+        "description": "Name of the wall type to use. If omitted, uses the default wall type."
+      },
+      "level_name": {
+        "type": "string",
+        "description": "Name of the level to place the wall on. If omitted, uses the active level."
+      }
+    },
+    "required": ["start_point", "end_point", "height"]
+  },
+  "returns": {
+    "type": "object",
+    "properties": {
+      "element_id": { "type": "integer" },
+      "message": { "type": "string" }
+    }
+  },
+  "examples": [
+    {
+      "description": "Create a 10-foot high wall along the X axis",
+      "args": {
+        "start_point": [0, 0, 0],
+        "end_point": [20, 0, 0],
+        "height": 10.0
+      }
+    },
+    {
+      "description": "Create a wall with a specific type",
+      "args": {
+        "start_point": [0, 0, 0],
+        "end_point": [10, 0, 0],
+        "height": 10.0,
+        "wall_type": "Generic - 200mm",
+        "level_name": "Level 1"
+      }
+    }
+  ]
+}

@@ -1,0 +1,55 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://revit-orchestrator.dev/schemas/tool-definition.schema.json",
+  "title": "Tool Definition",
+  "description": "Schema for Revit Orchestrator tool definition files",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9]*\\.[a-z_][a-z0-9_]*$",
+      "description": "Unique tool identifier in the form adapter.tool_name"
+    },
+    "adapter": {
+      "type": "string",
+      "enum": ["revit", "pyrevit", "dynamo", "workflow"],
+      "description": "Which adapter handles execution"
+    },
+    "description": {
+      "type": "string",
+      "minLength": 10,
+      "description": "Human-readable description for LLM context"
+    },
+    "parameters": {
+      "type": "object",
+      "description": "JSON Schema defining the tool's input arguments",
+      "properties": {
+        "type": { "const": "object" },
+        "properties": { "type": "object" },
+        "required": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      },
+      "required": ["type", "properties"]
+    },
+    "returns": {
+      "type": "object",
+      "description": "JSON Schema defining the tool's output shape"
+    },
+    "examples": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "description": { "type": "string" },
+          "args": { "type": "object" },
+          "expected_output": { "type": "object" }
+        },
+        "required": ["description", "args"]
+      }
+    }
+  },
+  "required": ["name", "adapter", "description", "parameters"],
+  "additionalProperties": false
+}

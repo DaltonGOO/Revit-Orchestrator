@@ -1,0 +1,37 @@
+{
+  "name": "pyrevit.run_script",
+  "adapter": "pyrevit",
+  "description": "Executes a pyRevit Python script by name or path. The script runs inside the Revit environment via pyRevit's CLI.",
+  "parameters": {
+    "type": "object",
+    "properties": {
+      "script_path": {
+        "type": "string",
+        "description": "Absolute path to the pyRevit Python script (.py) to execute"
+      },
+      "arguments": {
+        "type": "object",
+        "description": "Key-value arguments to pass to the script as environment variables",
+        "additionalProperties": { "type": "string" }
+      }
+    },
+    "required": ["script_path"]
+  },
+  "returns": {
+    "type": "object",
+    "properties": {
+      "stdout": { "type": "string" },
+      "stderr": { "type": "string" },
+      "exit_code": { "type": "integer" }
+    }
+  },
+  "examples": [
+    {
+      "description": "Run a script that exports room data",
+      "args": {
+        "script_path": "C:\\pyRevitScripts\\export_rooms.py",
+        "arguments": { "OUTPUT_FORMAT": "json" }
+      }
+    }
+  ]
+}

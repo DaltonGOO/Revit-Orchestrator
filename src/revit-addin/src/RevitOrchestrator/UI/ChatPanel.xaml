@@ -1,0 +1,113 @@
+<UserControl x:Class="RevitOrchestrator.UI.ChatPanel"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:converters="clr-namespace:RevitOrchestrator.UI.Converters"
+             Background="{DynamicResource {x:Static SystemColors.ControlBrushKey}}">
+
+    <UserControl.Resources>
+        <converters:BoolToVisibilityConverter x:Key="BoolToVisibility" />
+        <converters:MessageRoleToAlignmentConverter x:Key="RoleToAlignment" />
+
+        <!-- Chat bubble style -->
+        <Style x:Key="ChatBubble" TargetType="Border">
+            <Setter Property="CornerRadius" Value="8" />
+            <Setter Property="Padding" Value="10,6" />
+            <Setter Property="Margin" Value="4,2" />
+            <Setter Property="MaxWidth" Value="400" />
+        </Style>
+    </UserControl.Resources>
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <!-- Header -->
+        <Border Grid.Row="0" Background="#1a73e8" Padding="10,8">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <TextBlock Grid.Column="0"
+                           Text="Revit Orchestrator"
+                           FontWeight="SemiBold"
+                           FontSize="14"
+                           Foreground="White" />
+                <StackPanel Grid.Column="1" Orientation="Horizontal">
+                    <Ellipse Width="8" Height="8" Margin="0,0,6,0"
+                             Fill="{Binding StatusColor}" />
+                    <TextBlock Text="{Binding ConnectionStatus}"
+                               Foreground="White" FontSize="11"
+                               VerticalAlignment="Center" />
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <!-- Messages -->
+        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto"
+                      x:Name="MessagesScroller">
+            <ItemsControl ItemsSource="{Binding Messages}">
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                        <Grid>
+                            <Border Style="{StaticResource ChatBubble}"
+                                    HorizontalAlignment="{Binding Role, Converter={StaticResource RoleToAlignment}}">
+                                <Border.Background>
+                                    <MultiBinding Converter="{StaticResource RoleToAlignment}"
+                                                  ConverterParameter="background">
+                                        <Binding Path="Role" />
+                                    </MultiBinding>
+                                </Border.Background>
+                                <StackPanel>
+                                    <TextBlock Text="{Binding Role}"
+                                               FontSize="10"
+                                               Foreground="Gray"
+                                               Margin="0,0,0,2" />
+                                    <TextBlock Text="{Binding Content}"
+                                               TextWrapping="Wrap"
+                                               FontSize="13" />
+                                    <TextBlock Text="{Binding ToolName}"
+                                               FontSize="10"
+                                               Foreground="#666"
+                                               FontStyle="Italic"
+                                               Visibility="{Binding IsToolCall, Converter={StaticResource BoolToVisibility}}" />
+                                </StackPanel>
+                            </Border>
+                        </Grid>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+        </ScrollViewer>
+
+        <!-- Input area -->
+        <Border Grid.Row="2" BorderThickness="0,1,0,0"
+                BorderBrush="#ddd" Padding="8">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <TextBox Grid.Column="0"
+                         Text="{Binding InputText, UpdateSourceTrigger=PropertyChanged}"
+                         FontSize="13"
+                         Padding="8,6"
+                         VerticalContentAlignment="Center"
+                         AcceptsReturn="False"
+                         x:Name="InputBox" />
+                <Button Grid.Column="1"
+                        Content="Send"
+                        Margin="6,0,0,0"
+                        Padding="16,6"
+                        Command="{Binding SendCommand}"
+                        IsDefault="True"
+                        Background="#1a73e8"
+                        Foreground="White"
+                        FontWeight="SemiBold"
+                        BorderThickness="0" />
+            </Grid>
+        </Border>
+    </Grid>
+</UserControl>
