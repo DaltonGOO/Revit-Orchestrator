@@ -1,0 +1,44 @@
+{
+  "name": "orchestrator.explain_failure",
+  "adapter": "workflow",
+  "description": "Analyse a past failure by searching for similar failures and how they were resolved. Helps diagnose recurring issues and find known fixes.",
+  "version": "1.0.0",
+  "tags": ["history", "debugging", "ml"],
+  "permissions": {
+    "mode": "read",
+    "approval_required": false
+  },
+  "side_effects": [],
+  "parameters": {
+    "type": "object",
+    "properties": {
+      "error_code": {
+        "type": "string",
+        "description": "The error code to investigate (e.g., 'REVIT_API_ERROR', 'TOOL_NOT_FOUND')"
+      },
+      "tool_name": {
+        "type": "string",
+        "description": "Optional: the tool that failed"
+      },
+      "context": {
+        "type": "string",
+        "description": "Optional: additional context about the failure"
+      }
+    },
+    "required": ["error_code"]
+  },
+  "returns": {
+    "type": "object",
+    "properties": {
+      "similar_failures": {
+        "type": "array",
+        "description": "Past failures with similar error codes or context"
+      },
+      "resolutions": {
+        "type": "array",
+        "description": "Successful events that followed similar failures in the same episode"
+      }
+    }
+  },
+  "handler": "orchestrator_explain_failure"
+}

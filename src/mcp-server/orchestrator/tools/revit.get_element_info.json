@@ -2,6 +2,15 @@
   "name": "revit.get_element_info",
   "adapter": "revit",
   "description": "Retrieves detailed information about a Revit element by its element ID, including category, type, parameters, and geometry bounds.",
+  "version": "1.0.0",
+  "tags": ["query", "elements"],
+  "permissions": {
+    "mode": "read"
+  },
+  "side_effects": [],
+  "preconditions": [
+    { "check": "document_open" }
+  ],
   "parameters": {
     "type": "object",
     "properties": {

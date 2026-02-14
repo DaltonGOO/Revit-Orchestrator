@@ -41,19 +41,36 @@ class LLMRouter:
         self._registry = registry
         self._system_prompt = system_prompt
         self._tools_cache: list[dict[str, Any]] | None = None
+        # Maps sanitized name (underscores) back to original name (dots)
+        self._name_map: dict[str, str] = {}
 
         # Invalidate cache when registry changes
         registry.on_change(self._invalidate_tools_cache)
 
     def _invalidate_tools_cache(self) -> None:
         self._tools_cache = None
+        self._name_map.clear()
 
     def _get_formatted_tools(self) -> list[dict[str, Any]]:
         """Get tool definitions formatted for the current provider."""
         if self._tools_cache is None:
             definitions = self._registry.list_tools()
             self._tools_cache = self._provider.format_tools(definitions)
+            # Build reverse name map (sanitized → original)
+            for defn in definitions:
+                original = defn["name"]
+                sanitized = original.replace(".", "_")
+                if sanitized != original:
+                    self._name_map[sanitized] = original
         return self._tools_cache
+
+    def _restore_tool_names(self, response: LLMResponse) -> LLMResponse:
+        """Map sanitized tool names back to their original dotted form."""
+        if not self._name_map:
+            return response
+        for tc in response.tool_calls:
+            tc.name = self._name_map.get(tc.name, tc.name)
+        return response
 
     async def chat(
         self,
@@ -68,8 +85,17 @@ class LLMRouter:
         full_messages.extend(messages)
 
         tools = self._get_formatted_tools()
-        return await self._provider.chat(
-            full_messages,
-            tools=tools if tools else None,
-            temperature=temperature,
-        )
+        logger.debug("Calling LLM provider %s with %d messages and %d tools",
+                     self._provider.name, len(full_messages), len(tools))
+        try:
+            response = await self._provider.chat(
+                full_messages,
+                tools=tools if tools else None,
+                temperature=temperature,
+            )
+        except Exception:
+            logger.exception("LLM provider %s raised an error", self._provider.name)
+            raise
+        logger.debug("LLM provider responded: content_length=%d, tool_calls=%d",
+                     len(response.content or ""), len(response.tool_calls))
+        return self._restore_tool_names(response)

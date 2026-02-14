@@ -1,0 +1,45 @@
+{
+  "name": "orchestrator.replay_run",
+  "adapter": "workflow",
+  "description": "Replays a previous tool execution run from the audit log. By default runs in dry-run mode for safety.",
+  "version": "1.0.0",
+  "tags": ["observability", "replay", "audit"],
+  "permissions": {
+    "mode": "read"
+  },
+  "side_effects": [],
+  "parameters": {
+    "type": "object",
+    "properties": {
+      "correlation_id": {
+        "type": "string",
+        "description": "The correlation ID of the run to replay"
+      },
+      "dry_run": {
+        "type": "boolean",
+        "description": "Whether to replay in dry-run mode (default: true)",
+        "default": true
+      }
+    },
+    "required": ["correlation_id"]
+  },
+  "returns": {
+    "type": "object",
+    "properties": {
+      "results": {
+        "type": "array",
+        "description": "Results from each replayed tool call"
+      },
+      "total_steps": { "type": "integer" }
+    }
+  },
+  "examples": [
+    {
+      "description": "Replay a run in dry-run mode",
+      "args": {
+        "correlation_id": "abc-123-def",
+        "dry_run": true
+      }
+    }
+  ]
+}

@@ -1,0 +1,505 @@
+<Window x:Class="RevitOrchestrator.UI.WorkflowEditorDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:converters="clr-namespace:RevitOrchestrator.UI.Converters"
+        Title="Workflow Editor"
+        Width="860"
+        Height="640"
+        WindowStartupLocation="CenterOwner"
+        ShowInTaskbar="False">
+
+    <Window.Resources>
+        <converters:BoolToVisibilityConverter x:Key="BoolToVisibility" />
+        <converters:NullToCollapsedConverter x:Key="NullToCollapsed" />
+    </Window.Resources>
+
+    <Grid Margin="12">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <!-- Main two-column layout -->
+        <Grid Grid.Row="0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="3*" />
+                <ColumnDefinition Width="8" />
+                <ColumnDefinition Width="2*" />
+            </Grid.ColumnDefinitions>
+
+            <!-- Left panel: Steps -->
+            <Grid Grid.Column="0">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+
+                <!-- Steps header -->
+                <TextBlock Grid.Row="0"
+                           Text="Workflow Steps"
+                           FontWeight="SemiBold"
+                           FontSize="13"
+                           Margin="0,0,0,6" />
+
+                <!-- Step list -->
+                <Border Grid.Row="1"
+                        BorderThickness="1"
+                        BorderBrush="#ddd"
+                        Margin="0,0,0,4">
+                    <ListBox ItemsSource="{Binding Steps}"
+                             SelectedItem="{Binding SelectedStep}"
+                             BorderThickness="0"
+                             HorizontalContentAlignment="Stretch">
+                        <ListBox.ItemTemplate>
+                            <DataTemplate>
+                                <Grid Margin="4,4">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="24" />
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Grid.Column="0"
+                                               Text="{Binding DisplayIndex}"
+                                               FontWeight="Bold"
+                                               Foreground="#666"
+                                               VerticalAlignment="Center" />
+                                    <StackPanel Grid.Column="1">
+                                        <TextBlock Text="{Binding ToolName}"
+                                                   FontWeight="SemiBold"
+                                                   FontSize="12" />
+                                        <TextBlock Text="{Binding ArgsSummary}"
+                                                   FontSize="10"
+                                                   Foreground="#888"
+                                                   TextTrimming="CharacterEllipsis"
+                                                   MaxWidth="280" />
+                                    </StackPanel>
+                                    <Border Grid.Column="2"
+                                            CornerRadius="3"
+                                            Padding="4,1"
+                                            Background="#f0f0f0"
+                                            VerticalAlignment="Center">
+                                        <TextBlock Text="{Binding OnFailure}"
+                                                   FontSize="9"
+                                                   Foreground="#666" />
+                                    </Border>
+                                </Grid>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+                </Border>
+
+                <!-- Step manipulation buttons -->
+                <StackPanel Grid.Row="2"
+                            Orientation="Horizontal"
+                            Margin="0,0,0,8">
+                    <Button Content="Add Step"
+                            Padding="10,4"
+                            Margin="0,0,4,0"
+                            FontSize="11"
+                            Command="{Binding AddStepCommand}" />
+                    <Button Content="Remove"
+                            Padding="10,4"
+                            Margin="0,0,4,0"
+                            FontSize="11"
+                            Command="{Binding RemoveStepCommand}" />
+                    <Button Content="Up"
+                            Padding="10,4"
+                            Margin="0,0,4,0"
+                            FontSize="11"
+                            Command="{Binding MoveUpCommand}" />
+                    <Button Content="Down"
+                            Padding="10,4"
+                            FontSize="11"
+                            Command="{Binding MoveDownCommand}" />
+                </StackPanel>
+
+                <!-- Step detail editor (shown when a step is selected) -->
+                <Border Grid.Row="3"
+                        BorderThickness="1"
+                        BorderBrush="#ccc"
+                        Padding="8"
+                        Background="#fafafa"
+                        Visibility="{Binding HasSelectedStep, Converter={StaticResource BoolToVisibility}}">
+                    <ScrollViewer VerticalScrollBarVisibility="Auto" MaxHeight="200">
+                        <StackPanel>
+                            <!-- Tool name -->
+                            <TextBlock Text="Tool Name" FontWeight="SemiBold" FontSize="11" Margin="0,0,0,2" />
+                            <TextBox Text="{Binding SelectedStep.ToolName, UpdateSourceTrigger=PropertyChanged}"
+                                     FontSize="12"
+                                     Padding="6,4"
+                                     Margin="0,0,0,6" />
+
+                            <!-- Args (per-argument rows with promote checkboxes) -->
+                            <TextBlock Text="Arguments" FontWeight="SemiBold" FontSize="11" Margin="0,0,0,2" />
+                            <ItemsControl ItemsSource="{Binding SelectedStep.Args}" Margin="0,0,0,6">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Grid Margin="0,2">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="20" />
+                                                <ColumnDefinition Width="110" />
+                                                <ColumnDefinition Width="*" />
+                                            </Grid.ColumnDefinitions>
+                                            <CheckBox Grid.Column="0"
+                                                      IsChecked="{Binding IsPromoted}"
+                                                      VerticalAlignment="Center"
+                                                      ToolTip="Promote to workflow input parameter" />
+                                            <TextBlock Grid.Column="1"
+                                                       Text="{Binding Key}"
+                                                       FontFamily="Consolas"
+                                                       FontSize="11"
+                                                       VerticalAlignment="Center"
+                                                       Margin="2,0,4,0">
+                                                <TextBlock.Style>
+                                                    <Style TargetType="TextBlock">
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding IsPromoted}" Value="True">
+                                                                <Setter Property="Foreground" Value="#1a73e8" />
+                                                                <Setter Property="FontWeight" Value="SemiBold" />
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </TextBlock.Style>
+                                            </TextBlock>
+                                            <TextBox Grid.Column="2"
+                                                     Text="{Binding ValueJson, UpdateSourceTrigger=LostFocus}"
+                                                     FontFamily="Consolas"
+                                                     FontSize="11"
+                                                     Padding="4,2" />
+                                        </Grid>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+
+                            <!-- Step Bindings (advanced, step-to-step only) -->
+                            <TextBlock Text="Step Bindings (advanced)" FontWeight="SemiBold" FontSize="11" Margin="0,0,0,2" />
+                            <TextBox Text="{Binding SelectedStep.BindingsJson, UpdateSourceTrigger=LostFocus}"
+                                     FontSize="11"
+                                     FontFamily="Consolas"
+                                     Padding="6,4"
+                                     Height="36"
+                                     AcceptsReturn="True"
+                                     TextWrapping="Wrap"
+                                     VerticalScrollBarVisibility="Auto"
+                                     Margin="0,0,0,6" />
+
+                            <!-- Guard -->
+                            <TextBlock Text="Guard Expression" FontWeight="SemiBold" FontSize="11" Margin="0,0,0,2" />
+                            <TextBox Text="{Binding SelectedStep.Guard, UpdateSourceTrigger=PropertyChanged}"
+                                     FontSize="11"
+                                     Padding="6,4"
+                                     Margin="0,0,0,6" />
+
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+
+                                <!-- On Failure -->
+                                <StackPanel Grid.Column="0" Margin="0,0,4,0">
+                                    <TextBlock Text="On Failure" FontWeight="SemiBold" FontSize="11" Margin="0,0,0,2" />
+                                    <ComboBox SelectedItem="{Binding SelectedStep.OnFailure}"
+                                              FontSize="11"
+                                              Padding="4,3">
+                                        <ComboBoxItem Content="stop" />
+                                        <ComboBoxItem Content="skip" />
+                                        <ComboBoxItem Content="retry" />
+                                    </ComboBox>
+                                </StackPanel>
+
+                                <!-- Max Retries -->
+                                <StackPanel Grid.Column="1" Margin="4,0,4,0">
+                                    <TextBlock Text="Max Retries" FontWeight="SemiBold" FontSize="11" Margin="0,0,0,2" />
+                                    <TextBox Text="{Binding SelectedStep.MaxRetriesText, UpdateSourceTrigger=PropertyChanged}"
+                                             FontSize="11"
+                                             Padding="4,3" />
+                                </StackPanel>
+
+                                <!-- Timeout -->
+                                <StackPanel Grid.Column="2" Margin="4,0,0,0">
+                                    <TextBlock Text="Timeout (ms)" FontWeight="SemiBold" FontSize="11" Margin="0,0,0,2" />
+                                    <TextBox Text="{Binding SelectedStep.TimeoutMsText, UpdateSourceTrigger=PropertyChanged}"
+                                             FontSize="11"
+                                             Padding="4,3" />
+                                </StackPanel>
+                            </Grid>
+                        </StackPanel>
+                    </ScrollViewer>
+                </Border>
+            </Grid>
+
+            <!-- Separator -->
+            <GridSplitter Grid.Column="1"
+                          Width="1"
+                          Background="#ddd"
+                          HorizontalAlignment="Center" />
+
+            <!-- Right panel: Metadata & Governance -->
+            <ScrollViewer Grid.Column="2"
+                          VerticalScrollBarVisibility="Auto">
+                <StackPanel Margin="8,0,0,0">
+                    <TextBlock Text="Metadata &amp; Governance"
+                               FontWeight="SemiBold"
+                               FontSize="13"
+                               Margin="0,0,0,8" />
+
+                    <!-- Workflow Name -->
+                    <TextBlock Text="Workflow Name *" FontWeight="SemiBold" FontSize="11" Margin="0,0,0,2" />
+                    <TextBox Text="{Binding WorkflowName, UpdateSourceTrigger=PropertyChanged}"
+                             FontSize="12"
+                             Padding="6,4"
+                             Margin="0,0,0,8" />
+
+                    <!-- Description -->
+                    <TextBlock Text="Description" FontWeight="SemiBold" FontSize="11" Margin="0,0,0,2" />
+                    <TextBox Text="{Binding WorkflowDescription, UpdateSourceTrigger=PropertyChanged}"
+                             FontSize="12"
+                             Padding="6,4"
+                             Height="60"
+                             TextWrapping="Wrap"
+                             AcceptsReturn="True"
+                             VerticalScrollBarVisibility="Auto"
+                             Margin="0,0,0,8" />
+
+                    <!-- Version -->
+                    <TextBlock Text="Version" FontWeight="SemiBold" FontSize="11" Margin="0,0,0,2" />
+                    <TextBox Text="{Binding Version, UpdateSourceTrigger=PropertyChanged}"
+                             FontSize="12"
+                             Padding="6,4"
+                             Margin="0,0,0,8" />
+
+                    <!-- Author -->
+                    <TextBlock Text="Author" FontWeight="SemiBold" FontSize="11" Margin="0,0,0,2" />
+                    <TextBox Text="{Binding Author, UpdateSourceTrigger=PropertyChanged}"
+                             FontSize="12"
+                             Padding="6,4"
+                             Margin="0,0,0,8" />
+
+                    <!-- Tags -->
+                    <TextBlock Text="Tags (comma-separated)" FontWeight="SemiBold" FontSize="11" Margin="0,0,0,2" />
+                    <TextBox Text="{Binding TagsText, UpdateSourceTrigger=PropertyChanged}"
+                             FontSize="12"
+                             Padding="6,4"
+                             Margin="0,0,0,8" />
+
+                    <!-- Permission Mode -->
+                    <TextBlock Text="Permission Mode" FontWeight="SemiBold" FontSize="11" Margin="0,0,0,2" />
+                    <ComboBox SelectedItem="{Binding PermissionMode}"
+                              FontSize="12"
+                              Padding="4,3"
+                              Margin="0,0,0,8">
+                        <ComboBoxItem Content="read" />
+                        <ComboBoxItem Content="write" />
+                    </ComboBox>
+
+                    <!-- Approval Required -->
+                    <CheckBox Content="Approval Required"
+                              IsChecked="{Binding ApprovalRequired}"
+                              FontSize="12"
+                              Margin="0,0,0,8" />
+
+                    <!-- Side Effects -->
+                    <TextBlock Text="Side Effects" FontWeight="SemiBold" FontSize="11" Margin="0,0,0,4" />
+                    <StackPanel Margin="0,0,0,8">
+                        <CheckBox Content="creates_elements" IsChecked="{Binding SideEffect_Creates}" FontSize="11" Margin="0,1" />
+                        <CheckBox Content="modifies_elements" IsChecked="{Binding SideEffect_Modifies}" FontSize="11" Margin="0,1" />
+                        <CheckBox Content="deletes_elements" IsChecked="{Binding SideEffect_Deletes}" FontSize="11" Margin="0,1" />
+                        <CheckBox Content="modifies_parameters" IsChecked="{Binding SideEffect_Parameters}" FontSize="11" Margin="0,1" />
+                        <CheckBox Content="changes_view" IsChecked="{Binding SideEffect_View}" FontSize="11" Margin="0,1" />
+                        <CheckBox Content="file_io" IsChecked="{Binding SideEffect_FileIo}" FontSize="11" Margin="0,1" />
+                    </StackPanel>
+
+                    <!-- Test Results (shown after test) -->
+                    <Border CornerRadius="4"
+                            Padding="8"
+                            Margin="0,0,0,8"
+                            Visibility="{Binding HasTestResults, Converter={StaticResource BoolToVisibility}}">
+                        <Border.Style>
+                            <Style TargetType="Border">
+                                <Setter Property="Background" Value="#FFEBEE" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding TestPassed}" Value="True">
+                                        <Setter Property="Background" Value="#E8F5E9" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Border.Style>
+                        <StackPanel>
+                            <TextBlock FontWeight="SemiBold"
+                                       FontSize="12"
+                                       Margin="0,0,0,4">
+                                <TextBlock.Style>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="Text" Value="Test Failed" />
+                                        <Setter Property="Foreground" Value="#C62828" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding TestPassed}" Value="True">
+                                                <Setter Property="Text" Value="Test Passed" />
+                                                <Setter Property="Foreground" Value="#2E7D32" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </TextBlock.Style>
+                            </TextBlock>
+                            <TextBlock Text="{Binding TestStatusText}"
+                                       FontSize="11"
+                                       TextWrapping="Wrap"
+                                       Margin="0,0,0,2" />
+                            <TextBlock Text="{Binding TestSummary}"
+                                       FontSize="10"
+                                       Foreground="#666"
+                                       TextWrapping="Wrap"
+                                       Visibility="{Binding TestSummary, Converter={StaticResource NullToCollapsed}}" />
+                        </StackPanel>
+                    </Border>
+
+                    <!-- Input Parameters summary -->
+                    <Border CornerRadius="4"
+                            Padding="8"
+                            Margin="0,0,0,8"
+                            Background="#E3F2FD"
+                            Visibility="{Binding HasPromotedParameters, Converter={StaticResource BoolToVisibility}}">
+                        <StackPanel>
+                            <TextBlock Text="Input Parameters"
+                                       FontWeight="SemiBold"
+                                       FontSize="12"
+                                       Foreground="#1565C0"
+                                       Margin="0,0,0,4" />
+                            <TextBlock Text="These args are promoted to workflow-level inputs. Users can override them at run time."
+                                       FontSize="10"
+                                       Foreground="#666"
+                                       TextWrapping="Wrap"
+                                       Margin="0,0,0,4" />
+                            <ItemsControl ItemsSource="{Binding PromotedParameters}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Grid Margin="0,2">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="100" />
+                                                <ColumnDefinition Width="60" />
+                                                <ColumnDefinition Width="*" />
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Grid.Column="0"
+                                                       Text="{Binding Key}"
+                                                       FontFamily="Consolas"
+                                                       FontSize="10"
+                                                       FontWeight="SemiBold"
+                                                       Foreground="#1565C0" />
+                                            <TextBlock Grid.Column="1"
+                                                       Text="{Binding InferredType}"
+                                                       FontSize="10"
+                                                       Foreground="#888" />
+                                            <TextBlock Grid.Column="2"
+                                                       Text="{Binding DefaultValue, StringFormat='= {0}'}"
+                                                       FontSize="10"
+                                                       Foreground="#666"
+                                                       FontFamily="Consolas" />
+                                        </Grid>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- LLM Review results (shown after review) -->
+                    <Border Background="#FFF8E1"
+                            CornerRadius="4"
+                            Padding="8"
+                            Margin="0,0,0,8"
+                            Visibility="{Binding HasReviewResults, Converter={StaticResource BoolToVisibility}}">
+                        <StackPanel>
+                            <TextBlock Text="LLM Review Results"
+                                       FontWeight="SemiBold"
+                                       FontSize="12"
+                                       Foreground="#F57F17"
+                                       Margin="0,0,0,4" />
+                            <TextBlock Text="{Binding LlmReviewSummary}"
+                                       FontSize="11"
+                                       TextWrapping="Wrap"
+                                       Margin="0,0,0,4" />
+                            <ItemsControl ItemsSource="{Binding LlmReviewFlags}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <TextBlock FontSize="10" Foreground="#E65100" Margin="0,1">
+                                            <Run Text="- " />
+                                            <Run Text="{Binding Mode=OneWay}" />
+                                        </TextBlock>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+            </ScrollViewer>
+        </Grid>
+
+        <!-- Bottom bar -->
+        <Border Grid.Row="1"
+                BorderThickness="0,1,0,0"
+                BorderBrush="#ddd"
+                Padding="0,10,0,0"
+                Margin="0,8,0,0">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+
+                <!-- Test workflow button (prominent, encouraged) -->
+                <Button Grid.Column="0"
+                        Content="Test Workflow"
+                        Padding="16,8"
+                        Margin="0,0,8,0"
+                        Background="#FF8F00"
+                        Foreground="White"
+                        FontWeight="SemiBold"
+                        BorderThickness="0"
+                        Click="TestButton_Click"
+                        IsEnabled="{Binding CanTest}"
+                        ToolTip="Run the workflow in Revit to verify it works before saving" />
+
+                <!-- LLM review checkbox -->
+                <CheckBox Grid.Column="1"
+                          Content="LLM review before save"
+                          IsChecked="{Binding RequestLlmReview}"
+                          FontSize="11"
+                          VerticalAlignment="Center"
+                          Margin="0,0,8,0" />
+
+                <!-- Status text -->
+                <TextBlock Grid.Column="2"
+                           Text="{Binding StatusText}"
+                           FontSize="11"
+                           Foreground="#666"
+                           VerticalAlignment="Center"
+                           Margin="4,0"
+                           TextTrimming="CharacterEllipsis" />
+
+                <!-- Cancel -->
+                <Button Grid.Column="3"
+                        Content="Cancel"
+                        Padding="20,8"
+                        Margin="0,0,8,0"
+                        Click="CancelButton_Click" />
+
+                <!-- Save -->
+                <Button Grid.Column="4"
+                        Content="Save Workflow"
+                        Padding="20,8"
+                        Background="#1a73e8"
+                        Foreground="White"
+                        FontWeight="SemiBold"
+                        BorderThickness="0"
+                        Click="SaveButton_Click"
+                        IsEnabled="{Binding CanSave}" />
+            </Grid>
+        </Border>
+    </Grid>
+</Window>

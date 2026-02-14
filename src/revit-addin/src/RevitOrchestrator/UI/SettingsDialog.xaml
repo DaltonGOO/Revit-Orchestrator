@@ -1,0 +1,185 @@
+<Window x:Class="RevitOrchestrator.UI.SettingsDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Revit Orchestrator Settings"
+        Width="520"
+        Height="560"
+        WindowStartupLocation="CenterOwner"
+        ResizeMode="NoResize"
+        ShowInTaskbar="False">
+
+    <Grid Margin="16">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <ScrollViewer Grid.Row="0" VerticalScrollBarVisibility="Auto">
+            <StackPanel>
+
+                <!-- Connection -->
+                <TextBlock Text="Connection"
+                           FontWeight="Bold" FontSize="14"
+                           Foreground="#1a73e8" Margin="0,0,0,8" />
+                <Grid Margin="0,0,0,16">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="140" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+                    <TextBlock Grid.Row="0" Grid.Column="0" Text="Status:" Foreground="#666" Margin="0,2" />
+                    <StackPanel Grid.Row="0" Grid.Column="1" Orientation="Horizontal" Margin="0,2">
+                        <Ellipse Width="8" Height="8" Margin="0,0,6,0"
+                                 x:Name="StatusDot" Fill="Red" VerticalAlignment="Center" />
+                        <TextBlock x:Name="ConnectionStatusText" Text="Disconnected" />
+                    </StackPanel>
+                    <TextBlock Grid.Row="1" Grid.Column="0" Text="Pipe Name:" Foreground="#666" Margin="0,2" />
+                    <TextBlock Grid.Row="1" Grid.Column="1" x:Name="PipeNameText" Text="--" Margin="0,2" />
+                </Grid>
+
+                <Separator Margin="0,0,0,12" />
+
+                <!-- LLM Configuration -->
+                <TextBlock Text="LLM Configuration"
+                           FontWeight="Bold" FontSize="14"
+                           Foreground="#1a73e8" Margin="0,0,0,8" />
+                <Grid Margin="0,0,0,16">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="140" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+                    <TextBlock Grid.Row="0" Grid.Column="0" Text="Provider:" Foreground="#666" Margin="0,2" />
+                    <TextBlock Grid.Row="0" Grid.Column="1" x:Name="LlmProviderText" Text="--" Margin="0,2" />
+                    <TextBlock Grid.Row="1" Grid.Column="0" Text="Model:" Foreground="#666" Margin="0,2" />
+                    <TextBlock Grid.Row="1" Grid.Column="1" x:Name="LlmModelText" Text="--" Margin="0,2"
+                               TextWrapping="Wrap" />
+                </Grid>
+
+                <Separator Margin="0,0,0,12" />
+
+                <!-- Storage -->
+                <TextBlock Text="Storage"
+                           FontWeight="Bold" FontSize="14"
+                           Foreground="#1a73e8" Margin="0,0,0,8" />
+                <Grid Margin="0,0,0,16">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="140" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+                    <TextBlock Grid.Row="0" Grid.Column="0" Text="Event Store (DB):" Foreground="#666" Margin="0,2" />
+                    <TextBlock Grid.Row="0" Grid.Column="1" x:Name="EventStorePathText" Text="--"
+                               TextWrapping="Wrap" Margin="0,2" />
+                    <TextBlock Grid.Row="1" Grid.Column="0" Text="DB Size:" Foreground="#666" Margin="0,2" />
+                    <TextBlock Grid.Row="1" Grid.Column="1" x:Name="EventStoreSizeText" Text="--" Margin="0,2" />
+                    <TextBlock Grid.Row="2" Grid.Column="0" Text="Episodes:" Foreground="#666" Margin="0,2" />
+                    <TextBlock Grid.Row="2" Grid.Column="1" x:Name="EpisodeCountText" Text="--" Margin="0,2" />
+                    <TextBlock Grid.Row="3" Grid.Column="0" Text="Events:" Foreground="#666" Margin="0,2" />
+                    <TextBlock Grid.Row="3" Grid.Column="1" x:Name="EventCountText" Text="--" Margin="0,2" />
+                    <TextBlock Grid.Row="4" Grid.Column="0" Text="Blob Store:" Foreground="#666" Margin="0,2" />
+                    <TextBlock Grid.Row="4" Grid.Column="1" x:Name="BlobStorePathText" Text="--"
+                               TextWrapping="Wrap" Margin="0,2" />
+                    <TextBlock Grid.Row="5" Grid.Column="0" Text="Blob Count:" Foreground="#666" Margin="0,2" />
+                    <TextBlock Grid.Row="5" Grid.Column="1" x:Name="BlobCountText" Text="--" Margin="0,2" />
+                    <TextBlock Grid.Row="6" Grid.Column="0" Text="JSONL Logs:" Foreground="#666" Margin="0,2" />
+                    <TextBlock Grid.Row="6" Grid.Column="1" x:Name="AuditLogDirText" Text="--"
+                               TextWrapping="Wrap" Margin="0,2" />
+                </Grid>
+
+                <Separator Margin="0,0,0,12" />
+
+                <!-- Tools -->
+                <TextBlock Text="Tools"
+                           FontWeight="Bold" FontSize="14"
+                           Foreground="#1a73e8" Margin="0,0,0,8" />
+                <Grid Margin="0,0,0,16">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="140" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+                    <TextBlock Grid.Row="0" Grid.Column="0" Text="Tools Directory:" Foreground="#666" Margin="0,2" />
+                    <TextBlock Grid.Row="0" Grid.Column="1" x:Name="ToolsDirText" Text="--"
+                               TextWrapping="Wrap" Margin="0,2" />
+                    <TextBlock Grid.Row="1" Grid.Column="0" Text="Registered Tools:" Foreground="#666" Margin="0,2" />
+                    <TextBlock Grid.Row="1" Grid.Column="1" x:Name="ToolCountText" Text="--" Margin="0,2" />
+                    <TextBlock Grid.Row="2" Grid.Column="0" Text="Hot Reload:" Foreground="#666" Margin="0,2" />
+                    <TextBlock Grid.Row="2" Grid.Column="1" x:Name="HotReloadText" Text="--" Margin="0,2" />
+                </Grid>
+
+                <Separator Margin="0,0,0,12" />
+
+                <!-- ML / Embeddings -->
+                <TextBlock Text="ML / Embeddings"
+                           FontWeight="Bold" FontSize="14"
+                           Foreground="#1a73e8" Margin="0,0,0,8" />
+                <Grid Margin="0,0,0,16">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="140" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+                    <TextBlock Grid.Row="0" Grid.Column="0" Text="Embedding Model:" Foreground="#666" Margin="0,2" />
+                    <TextBlock Grid.Row="0" Grid.Column="1" x:Name="EmbeddingModelText" Text="--" Margin="0,2" />
+                    <TextBlock Grid.Row="1" Grid.Column="0" Text="ML Available:" Foreground="#666" Margin="0,2" />
+                    <TextBlock Grid.Row="1" Grid.Column="1" x:Name="MlAvailableText" Text="--" Margin="0,2" />
+                </Grid>
+
+                <Separator Margin="0,0,0,12" />
+
+                <!-- Revit Info -->
+                <TextBlock Text="Revit"
+                           FontWeight="Bold" FontSize="14"
+                           Foreground="#1a73e8" Margin="0,0,0,8" />
+                <Grid Margin="0,0,0,8">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="140" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+                    <TextBlock Grid.Row="0" Grid.Column="0" Text="Version:" Foreground="#666" Margin="0,2" />
+                    <TextBlock Grid.Row="0" Grid.Column="1" x:Name="RevitVersionText" Text="--" Margin="0,2" />
+                    <TextBlock Grid.Row="1" Grid.Column="0" Text="User:" Foreground="#666" Margin="0,2" />
+                    <TextBlock Grid.Row="1" Grid.Column="1" x:Name="RevitUserText" Text="--" Margin="0,2" />
+                    <TextBlock Grid.Row="2" Grid.Column="0" Text="Document:" Foreground="#666" Margin="0,2" />
+                    <TextBlock Grid.Row="2" Grid.Column="1" x:Name="RevitDocumentText" Text="--"
+                               TextWrapping="Wrap" Margin="0,2" />
+                </Grid>
+
+            </StackPanel>
+        </ScrollViewer>
+
+        <!-- Close button -->
+        <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,12,0,0">
+            <Button Content="Close"
+                    Padding="24,8"
+                    Click="CloseButton_Click" />
+        </StackPanel>
+    </Grid>
+</Window>

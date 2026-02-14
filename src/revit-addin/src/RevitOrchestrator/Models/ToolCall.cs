@@ -14,6 +14,9 @@ public sealed class ToolCall
     [JsonPropertyName("args")]
     public JsonElement Args { get; set; }
 
+    [JsonPropertyName("execution_mode")]
+    public string ExecutionMode { get; set; } = "headless";
+
     /// <summary>
     /// The message ID from the pipe envelope, used to correlate the response.
     /// </summary>

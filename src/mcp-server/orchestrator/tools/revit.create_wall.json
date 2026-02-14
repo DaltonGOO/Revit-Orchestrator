@@ -2,6 +2,17 @@
   "name": "revit.create_wall",
   "adapter": "revit",
   "description": "Creates a wall in the active Revit document between two points with a specified height and optional wall type.",
+  "version": "1.0.0",
+  "tags": ["geometry", "walls"],
+  "permissions": {
+    "mode": "write",
+    "categories": ["Walls"],
+    "approval_required": false
+  },
+  "side_effects": ["creates_elements"],
+  "preconditions": [
+    { "check": "document_open" }
+  ],
   "parameters": {
     "type": "object",
     "properties": {

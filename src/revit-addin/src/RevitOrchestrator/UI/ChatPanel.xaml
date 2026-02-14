@@ -7,6 +7,8 @@
     <UserControl.Resources>
         <converters:BoolToVisibilityConverter x:Key="BoolToVisibility" />
         <converters:MessageRoleToAlignmentConverter x:Key="RoleToAlignment" />
+        <converters:CompletedToVisibilityConverter x:Key="CompletedToVisibility" />
+        <converters:NullToCollapsedConverter x:Key="NullToCollapsed" />
 
         <!-- Chat bubble style -->
         <Style x:Key="ChatBubble" TargetType="Border">
@@ -21,7 +23,6 @@
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
-            <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
         <!-- Header -->
@@ -30,13 +31,27 @@
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*" />
                     <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
                 <TextBlock Grid.Column="0"
                            Text="Revit Orchestrator"
                            FontWeight="SemiBold"
                            FontSize="14"
-                           Foreground="White" />
-                <StackPanel Grid.Column="1" Orientation="Horizontal">
+                           Foreground="White"
+                           VerticalAlignment="Center" />
+                <Button Grid.Column="1"
+                        Content="&#x2699;"
+                        FontSize="16"
+                        Foreground="White"
+                        Background="Transparent"
+                        BorderThickness="0"
+                        Padding="8,2"
+                        Margin="0,0,8,0"
+                        Cursor="Hand"
+                        ToolTip="Settings"
+                        Click="SettingsButton_Click"
+                        VerticalAlignment="Center" />
+                <StackPanel Grid.Column="2" Orientation="Horizontal">
                     <Ellipse Width="8" Height="8" Margin="0,0,6,0"
                              Fill="{Binding StatusColor}" />
                     <TextBlock Text="{Binding ConnectionStatus}"
@@ -46,68 +61,841 @@
             </Grid>
         </Border>
 
-        <!-- Messages -->
-        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto"
-                      x:Name="MessagesScroller">
-            <ItemsControl ItemsSource="{Binding Messages}">
-                <ItemsControl.ItemTemplate>
-                    <DataTemplate>
-                        <Grid>
-                            <Border Style="{StaticResource ChatBubble}"
-                                    HorizontalAlignment="{Binding Role, Converter={StaticResource RoleToAlignment}}">
-                                <Border.Background>
-                                    <MultiBinding Converter="{StaticResource RoleToAlignment}"
-                                                  ConverterParameter="background">
-                                        <Binding Path="Role" />
-                                    </MultiBinding>
-                                </Border.Background>
-                                <StackPanel>
-                                    <TextBlock Text="{Binding Role}"
-                                               FontSize="10"
-                                               Foreground="Gray"
-                                               Margin="0,0,0,2" />
-                                    <TextBlock Text="{Binding Content}"
-                                               TextWrapping="Wrap"
-                                               FontSize="13" />
-                                    <TextBlock Text="{Binding ToolName}"
-                                               FontSize="10"
-                                               Foreground="#666"
-                                               FontStyle="Italic"
-                                               Visibility="{Binding IsToolCall, Converter={StaticResource BoolToVisibility}}" />
-                                </StackPanel>
-                            </Border>
-                        </Grid>
-                    </DataTemplate>
-                </ItemsControl.ItemTemplate>
-            </ItemsControl>
-        </ScrollViewer>
+        <!-- Tab control -->
+        <TabControl Grid.Row="1" x:Name="MainTabControl" SelectionChanged="MainTabControl_SelectionChanged">
 
-        <!-- Input area -->
-        <Border Grid.Row="2" BorderThickness="0,1,0,0"
-                BorderBrush="#ddd" Padding="8">
-            <Grid>
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="Auto" />
-                </Grid.ColumnDefinitions>
-                <TextBox Grid.Column="0"
-                         Text="{Binding InputText, UpdateSourceTrigger=PropertyChanged}"
-                         FontSize="13"
-                         Padding="8,6"
-                         VerticalContentAlignment="Center"
-                         AcceptsReturn="False"
-                         x:Name="InputBox" />
-                <Button Grid.Column="1"
-                        Content="Send"
-                        Margin="6,0,0,0"
-                        Padding="16,6"
-                        Command="{Binding SendCommand}"
-                        IsDefault="True"
-                        Background="#1a73e8"
-                        Foreground="White"
-                        FontWeight="SemiBold"
-                        BorderThickness="0" />
-            </Grid>
-        </Border>
+            <!-- Chat tab -->
+            <TabItem Header="Chat">
+                <Grid DataContext="{Binding}">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="*" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+
+                    <!-- Messages -->
+                    <ScrollViewer Grid.Row="0" VerticalScrollBarVisibility="Auto"
+                                  x:Name="MessagesScroller">
+                        <ItemsControl ItemsSource="{Binding Messages}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Grid>
+                                        <Border Style="{StaticResource ChatBubble}"
+                                                HorizontalAlignment="{Binding Role, Converter={StaticResource RoleToAlignment}}">
+                                            <Border.Background>
+                                                <MultiBinding Converter="{StaticResource RoleToAlignment}"
+                                                              ConverterParameter="background">
+                                                    <Binding Path="Role" />
+                                                </MultiBinding>
+                                            </Border.Background>
+                                            <StackPanel>
+                                                <TextBlock Text="{Binding Role}"
+                                                           FontSize="10"
+                                                           Foreground="Gray"
+                                                           Margin="0,0,0,2" />
+                                                <TextBox Text="{Binding Content, Mode=OneWay}"
+                                                         TextWrapping="Wrap"
+                                                         FontSize="13"
+                                                         IsReadOnly="True"
+                                                         BorderThickness="0"
+                                                         Background="Transparent"
+                                                         Padding="0"
+                                                         Cursor="IBeam" />
+                                                <TextBlock Text="{Binding ToolName}"
+                                                           FontSize="10"
+                                                           Foreground="#666"
+                                                           FontStyle="Italic"
+                                                           Visibility="{Binding IsToolCall, Converter={StaticResource BoolToVisibility}}" />
+                                            </StackPanel>
+                                        </Border>
+                                    </Grid>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </ScrollViewer>
+
+                    <!-- Input area -->
+                    <Border Grid.Row="1" BorderThickness="0,1,0,0"
+                            BorderBrush="#ddd" Padding="8">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <TextBox Grid.Column="0"
+                                     Text="{Binding InputText, UpdateSourceTrigger=PropertyChanged}"
+                                     FontSize="13"
+                                     Padding="8,6"
+                                     VerticalContentAlignment="Center"
+                                     AcceptsReturn="False"
+                                     x:Name="InputBox" />
+                            <Button Grid.Column="1"
+                                    Content="Send"
+                                    Margin="6,0,0,0"
+                                    Padding="16,6"
+                                    Command="{Binding SendCommand}"
+                                    IsDefault="True"
+                                    Background="#1a73e8"
+                                    Foreground="White"
+                                    FontWeight="SemiBold"
+                                    BorderThickness="0" />
+                        </Grid>
+                    </Border>
+                </Grid>
+            </TabItem>
+
+            <!-- Tools tab -->
+            <TabItem Header="Tools" x:Name="ToolsTab">
+                <Grid x:Name="ToolsGrid">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+
+                    <!-- Tools header bar -->
+                    <Border Grid.Row="0" Padding="8,6" BorderThickness="0,0,0,1" BorderBrush="#ddd">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0"
+                                       Text="Registered Tools"
+                                       FontWeight="SemiBold"
+                                       FontSize="13"
+                                       VerticalAlignment="Center" />
+                            <Button Grid.Column="1"
+                                    Content="Refresh"
+                                    Padding="10,4"
+                                    Margin="0,0,6,0"
+                                    Command="{Binding RefreshCommand}"
+                                    FontSize="11" />
+                            <Button Grid.Column="2"
+                                    Content="Contract"
+                                    Padding="10,4"
+                                    Margin="0,0,3,0"
+                                    Command="{Binding EditContractCommand}"
+                                    FontSize="11"
+                                    ToolTip="Edit tool contract (all tools)" />
+                            <Button Grid.Column="3"
+                                    Content="Steps"
+                                    Padding="10,4"
+                                    Margin="0,0,6,0"
+                                    Command="{Binding EditToolCommand}"
+                                    FontSize="11"
+                                    ToolTip="Edit workflow steps (workflow tools only)" />
+                            <Button Grid.Column="4"
+                                    Content="Delete"
+                                    Padding="10,4"
+                                    Margin="0,0,6,0"
+                                    Command="{Binding DeleteToolCommand}"
+                                    Background="#F44336"
+                                    Foreground="White"
+                                    FontWeight="SemiBold"
+                                    FontSize="11"
+                                    BorderThickness="0" />
+                            <Button Grid.Column="5"
+                                    Content="Run"
+                                    Padding="10,4"
+                                    Margin="0,0,6,0"
+                                    Command="{Binding RunToolCommand}"
+                                    Background="#FF8F00"
+                                    Foreground="White"
+                                    FontWeight="SemiBold"
+                                    FontSize="11"
+                                    BorderThickness="0" />
+                            <Button Grid.Column="6"
+                                    Content="+ Add Tool"
+                                    Padding="10,4"
+                                    Command="{Binding AddToolCommand}"
+                                    Background="#1a73e8"
+                                    Foreground="White"
+                                    FontWeight="SemiBold"
+                                    FontSize="11"
+                                    BorderThickness="0" />
+                        </Grid>
+                    </Border>
+
+                    <!-- Search bar -->
+                    <Border Grid.Row="1" Padding="8,4" BorderThickness="0,0,0,1" BorderBrush="#eee">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <TextBox Grid.Column="0"
+                                     Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}"
+                                     FontSize="12"
+                                     Padding="6,4"
+                                     VerticalContentAlignment="Center"
+                                     BorderBrush="#ccc"
+                                     BorderThickness="1"
+                                     x:Name="ToolSearchBox" />
+                            <!-- Placeholder text overlay -->
+                            <TextBlock Grid.Column="0"
+                                       Text="Search tools..."
+                                       FontSize="12"
+                                       Foreground="#999"
+                                       Padding="8,4"
+                                       VerticalAlignment="Center"
+                                       IsHitTestVisible="False">
+                                <TextBlock.Style>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="Visibility" Value="Collapsed" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding Text, ElementName=ToolSearchBox}" Value="">
+                                                <Setter Property="Visibility" Value="Visible" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </TextBlock.Style>
+                            </TextBlock>
+                            <Button Grid.Column="1"
+                                    Content="&#x2715;"
+                                    Padding="6,4"
+                                    Margin="4,0,0,0"
+                                    Command="{Binding ClearSearchCommand}"
+                                    FontSize="10"
+                                    Background="Transparent"
+                                    BorderThickness="0"
+                                    Foreground="#888"
+                                    Cursor="Hand" />
+                        </Grid>
+                    </Border>
+
+                    <!-- Tool list -->
+                    <Grid Grid.Row="2">
+                        <!-- Empty state -->
+                        <TextBlock Text="No tools registered. Click + Add Tool to add one."
+                                   HorizontalAlignment="Center"
+                                   VerticalAlignment="Center"
+                                   Foreground="Gray"
+                                   FontSize="12"
+                                   Visibility="{Binding ShowEmptyState, Converter={StaticResource BoolToVisibility}}" />
+
+                        <!-- No search results -->
+                        <TextBlock Text="No tools match your search."
+                                   HorizontalAlignment="Center"
+                                   VerticalAlignment="Center"
+                                   Foreground="Gray"
+                                   FontSize="12"
+                                   Visibility="{Binding ShowNoResults, Converter={StaticResource BoolToVisibility}}" />
+
+                        <!-- Loading indicator -->
+                        <TextBlock Text="Loading..."
+                                   HorizontalAlignment="Center"
+                                   VerticalAlignment="Center"
+                                   Foreground="Gray"
+                                   FontSize="12"
+                                   Visibility="{Binding IsLoading, Converter={StaticResource BoolToVisibility}}" />
+
+                        <!-- List view -->
+                        <ListView ItemsSource="{Binding ToolsView}"
+                                  SelectedItem="{Binding SelectedTool}"
+                                  BorderThickness="0"
+                                  Margin="4">
+                            <ListView.ItemTemplate>
+                                <DataTemplate>
+                                    <Grid Margin="4,6">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="24" />
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+
+                                        <!-- Favorite star toggle -->
+                                        <ToggleButton Grid.Column="0"
+                                                      IsChecked="{Binding IsFavorite, Mode=OneWay}"
+                                                      Command="{Binding DataContext.ToggleFavoriteCommand, RelativeSource={RelativeSource AncestorType=ListView}}"
+                                                      CommandParameter="{Binding}"
+                                                      VerticalAlignment="Center"
+                                                      Background="Transparent"
+                                                      BorderThickness="0"
+                                                      Padding="2"
+                                                      Cursor="Hand"
+                                                      FontSize="14">
+                                            <ToggleButton.Style>
+                                                <Style TargetType="ToggleButton">
+                                                    <Setter Property="Content" Value="&#x2606;" />
+                                                    <Setter Property="Foreground" Value="#999" />
+                                                    <Style.Triggers>
+                                                        <Trigger Property="IsChecked" Value="True">
+                                                            <Setter Property="Content" Value="&#x2605;" />
+                                                            <Setter Property="Foreground" Value="#FFA000" />
+                                                        </Trigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </ToggleButton.Style>
+                                        </ToggleButton>
+
+                                        <StackPanel Grid.Column="1">
+                                            <TextBlock Text="{Binding Name}"
+                                                       FontWeight="SemiBold"
+                                                       FontSize="12" />
+                                            <TextBlock Text="{Binding Description}"
+                                                       FontSize="11"
+                                                       Foreground="#666"
+                                                       TextTrimming="CharacterEllipsis"
+                                                       MaxWidth="300"
+                                                       Margin="0,2,0,0" />
+                                        </StackPanel>
+                                        <Border Grid.Column="2"
+                                                CornerRadius="4"
+                                                Padding="6,2"
+                                                VerticalAlignment="Top"
+                                                Margin="8,0,0,0">
+                                            <Border.Style>
+                                                <Style TargetType="Border">
+                                                    <Setter Property="Background" Value="#e0e0e0" />
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding Adapter}" Value="dynamo">
+                                                            <Setter Property="Background" Value="#e3f2fd" />
+                                                        </DataTrigger>
+                                                        <DataTrigger Binding="{Binding Adapter}" Value="pyrevit">
+                                                            <Setter Property="Background" Value="#fff3e0" />
+                                                        </DataTrigger>
+                                                        <DataTrigger Binding="{Binding Adapter}" Value="revit">
+                                                            <Setter Property="Background" Value="#e8f5e9" />
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </Border.Style>
+                                            <TextBlock Text="{Binding Adapter}"
+                                                       FontSize="10"
+                                                       FontWeight="SemiBold" />
+                                        </Border>
+                                    </Grid>
+                                </DataTemplate>
+                            </ListView.ItemTemplate>
+                        </ListView>
+                    </Grid>
+
+                    <!-- Status bar -->
+                    <Border Grid.Row="3" Padding="8,4" BorderThickness="0,1,0,0" BorderBrush="#ddd">
+                        <TextBlock Text="{Binding StatusText}"
+                                   FontSize="11"
+                                   Foreground="#666" />
+                    </Border>
+                </Grid>
+            </TabItem>
+
+            <!-- History tab -->
+            <TabItem Header="History" x:Name="HistoryTab">
+                <Grid x:Name="HistoryGrid">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+
+                    <!-- Live execution indicator -->
+                    <Border Grid.Row="0"
+                            Background="#FFA500"
+                            Padding="10,6"
+                            Visibility="{Binding IsExecuting, Converter={StaticResource BoolToVisibility}}">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0"
+                                       Text="&#9654;"
+                                       FontSize="12"
+                                       Foreground="White"
+                                       VerticalAlignment="Center"
+                                       Margin="0,0,8,0" />
+                            <TextBlock Grid.Column="1"
+                                       Text="{Binding CurrentExecution.ToolName, StringFormat='Executing {0}...'}"
+                                       FontWeight="SemiBold"
+                                       Foreground="White"
+                                       FontSize="12"
+                                       VerticalAlignment="Center" />
+                        </Grid>
+                    </Border>
+
+                    <!-- Event list -->
+                    <Grid Grid.Row="1">
+                        <!-- Empty state -->
+                        <TextBlock Text="No execution history yet. Run a chat command to see events here."
+                                   HorizontalAlignment="Center"
+                                   VerticalAlignment="Center"
+                                   Foreground="Gray"
+                                   FontSize="12"
+                                   Visibility="{Binding ShowEmptyState, Converter={StaticResource BoolToVisibility}}" />
+
+                        <!-- Events ListView with checkboxes -->
+                        <ListView ItemsSource="{Binding Events}"
+                                  BorderThickness="0"
+                                  Margin="4"
+                                  SelectionMode="Extended"
+                                  HorizontalContentAlignment="Stretch">
+                            <ListView.ItemContainerStyle>
+                                <Style TargetType="ListViewItem">
+                                    <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                                    <Setter Property="Padding" Value="0" />
+                                </Style>
+                            </ListView.ItemContainerStyle>
+                            <ListView.ItemTemplate>
+                                <DataTemplate>
+                                    <Border BorderBrush="#e0e0e0" BorderThickness="0,0,0,1" Padding="4">
+                                        <StackPanel>
+                                            <!-- Main row -->
+                                            <Grid Margin="2,4">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="24" />
+                                                    <ColumnDefinition Width="24" />
+                                                    <ColumnDefinition Width="Auto" />
+                                                    <ColumnDefinition Width="*" />
+                                                    <ColumnDefinition Width="Auto" />
+                                                    <ColumnDefinition Width="60" />
+                                                    <ColumnDefinition Width="20" />
+                                                </Grid.ColumnDefinitions>
+
+                                                <!-- Checkbox for selection -->
+                                                <CheckBox Grid.Column="0"
+                                                          IsChecked="{Binding IsSelected}"
+                                                          VerticalAlignment="Center"
+                                                          Visibility="{Binding EventType, Converter={StaticResource CompletedToVisibility}}" />
+
+                                                <!-- Status icon -->
+                                                <TextBlock Grid.Column="1"
+                                                           Text="{Binding StatusIcon}"
+                                                           Foreground="{Binding StatusColor}"
+                                                           FontSize="14"
+                                                           VerticalAlignment="Center"
+                                                           HorizontalAlignment="Center" />
+
+                                                <!-- Origin badge -->
+                                                <Border Grid.Column="2"
+                                                        CornerRadius="4"
+                                                        Padding="5,1"
+                                                        VerticalAlignment="Center"
+                                                        Margin="2,0,4,0">
+                                                    <Border.Background>
+                                                        <SolidColorBrush Color="{Binding OriginColor}" Opacity="0.15" />
+                                                    </Border.Background>
+                                                    <TextBlock Text="{Binding OriginLabel}"
+                                                               FontSize="9"
+                                                               FontWeight="SemiBold"
+                                                               Foreground="{Binding OriginColor}" />
+                                                </Border>
+
+                                                <!-- Tool name and args -->
+                                                <StackPanel Grid.Column="3" Margin="4,0">
+                                                    <TextBlock Text="{Binding ToolName}"
+                                                               FontWeight="SemiBold"
+                                                               FontSize="12" />
+                                                    <TextBlock Text="{Binding ArgsJson}"
+                                                               FontSize="10"
+                                                               Foreground="#666"
+                                                               TextTrimming="CharacterEllipsis"
+                                                               MaxWidth="250" />
+                                                    <!-- Result summary shown inline -->
+                                                    <TextBlock Text="{Binding ResultSummary}"
+                                                               FontSize="10"
+                                                               Foreground="#4CAF50"
+                                                               Visibility="{Binding HasResult, Converter={StaticResource BoolToVisibility}}" />
+                                                    <TextBlock Text="{Binding ErrorMessage}"
+                                                               FontSize="10"
+                                                               Foreground="#F44336"
+                                                               TextWrapping="Wrap"
+                                                               Visibility="{Binding ErrorMessage, Converter={StaticResource NullToCollapsed}}" />
+                                                </StackPanel>
+
+                                                <!-- Timestamp -->
+                                                <TextBlock Grid.Column="4"
+                                                           Text="{Binding TimestampText}"
+                                                           FontSize="10"
+                                                           Foreground="#888"
+                                                           VerticalAlignment="Center"
+                                                           Margin="4,0" />
+
+                                                <!-- Duration -->
+                                                <TextBlock Grid.Column="5"
+                                                           Text="{Binding DurationText}"
+                                                           FontSize="10"
+                                                           Foreground="#666"
+                                                           VerticalAlignment="Center"
+                                                           HorizontalAlignment="Right" />
+
+                                                <!-- Expand/Collapse toggle button -->
+                                                <ToggleButton Grid.Column="6"
+                                                              IsChecked="{Binding IsExpanded}"
+                                                              VerticalAlignment="Center"
+                                                              HorizontalAlignment="Center"
+                                                              Background="Transparent"
+                                                              BorderThickness="0"
+                                                              Padding="4,2"
+                                                              Cursor="Hand">
+                                                    <ToggleButton.Style>
+                                                        <Style TargetType="ToggleButton">
+                                                            <Setter Property="Content" Value="&#x25B6;" />
+                                                            <Setter Property="Foreground" Value="#888" />
+                                                            <Style.Triggers>
+                                                                <Trigger Property="IsChecked" Value="True">
+                                                                    <Setter Property="Content" Value="&#x25BC;" />
+                                                                </Trigger>
+                                                                <Trigger Property="IsMouseOver" Value="True">
+                                                                    <Setter Property="Foreground" Value="#1a73e8" />
+                                                                </Trigger>
+                                                            </Style.Triggers>
+                                                        </Style>
+                                                    </ToggleButton.Style>
+                                                </ToggleButton>
+                                            </Grid>
+
+                                            <!-- Expandable details section -->
+                                            <Border Background="#f5f5f5"
+                                                    CornerRadius="4"
+                                                    Margin="24,4,4,4"
+                                                    Padding="8"
+                                                    Visibility="{Binding IsExpanded, Converter={StaticResource BoolToVisibility}}">
+                                                <StackPanel>
+                                                    <!-- Model Changes section -->
+                                                    <StackPanel Visibility="{Binding HasModelChanges, Converter={StaticResource BoolToVisibility}}">
+                                                        <TextBlock Text="Model Changes:"
+                                                                   FontWeight="SemiBold"
+                                                                   FontSize="11"
+                                                                   Foreground="#1a73e8"
+                                                                   Margin="0,0,0,4" />
+                                                        <TextBlock Text="{Binding ModelChangesSummary}"
+                                                                   FontSize="11"
+                                                                   FontFamily="Consolas"
+                                                                   Foreground="#333"
+                                                                   TextWrapping="Wrap" />
+                                                    </StackPanel>
+
+                                                    <!-- Input Arguments -->
+                                                    <TextBlock Text="Input Arguments:"
+                                                               FontWeight="SemiBold"
+                                                               FontSize="11"
+                                                               Foreground="#666"
+                                                               Margin="0,8,0,4" />
+                                                    <TextBox Text="{Binding ArgsJson, Mode=OneWay}"
+                                                             FontSize="10"
+                                                             FontFamily="Consolas"
+                                                             IsReadOnly="True"
+                                                             TextWrapping="Wrap"
+                                                             Background="#fff"
+                                                             BorderThickness="1"
+                                                             BorderBrush="#ddd"
+                                                             Padding="4"
+                                                             MaxHeight="80"
+                                                             VerticalScrollBarVisibility="Auto" />
+
+                                                    <!-- Full Result JSON -->
+                                                    <StackPanel Visibility="{Binding HasResult, Converter={StaticResource BoolToVisibility}}">
+                                                        <TextBlock Text="Full Result:"
+                                                                   FontWeight="SemiBold"
+                                                                   FontSize="11"
+                                                                   Foreground="#666"
+                                                                   Margin="0,8,0,4" />
+                                                        <TextBox Text="{Binding ResultJson, Mode=OneWay}"
+                                                                 FontSize="10"
+                                                                 FontFamily="Consolas"
+                                                                 IsReadOnly="True"
+                                                                 TextWrapping="Wrap"
+                                                                 Background="#fff"
+                                                                 BorderThickness="1"
+                                                                 BorderBrush="#ddd"
+                                                                 Padding="4"
+                                                                 MaxHeight="120"
+                                                                 VerticalScrollBarVisibility="Auto" />
+                                                    </StackPanel>
+                                                </StackPanel>
+                                            </Border>
+                                        </StackPanel>
+                                    </Border>
+                                </DataTemplate>
+                            </ListView.ItemTemplate>
+                        </ListView>
+                    </Grid>
+
+                    <!-- Action bar -->
+                    <Border Grid.Row="2" Padding="8,6" BorderThickness="0,1,0,0" BorderBrush="#ddd">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+
+                            <TextBlock Grid.Column="0"
+                                       Text="{Binding StatusText}"
+                                       FontSize="11"
+                                       Foreground="#666"
+                                       VerticalAlignment="Center" />
+
+                            <Button Grid.Column="1"
+                                    Content="Clear"
+                                    Padding="12,4"
+                                    Margin="0,0,6,0"
+                                    Command="{Binding ClearHistoryCommand}"
+                                    FontSize="11" />
+
+                            <Button Grid.Column="2"
+                                    Content="Save as Workflow"
+                                    Padding="12,4"
+                                    Command="{Binding SaveAsWorkflowCommand}"
+                                    Background="#1a73e8"
+                                    Foreground="White"
+                                    FontWeight="SemiBold"
+                                    FontSize="11"
+                                    BorderThickness="0" />
+                        </Grid>
+                    </Border>
+                </Grid>
+            </TabItem>
+
+            <!-- Recording tab -->
+            <TabItem Header="Recording" x:Name="RecordingTab">
+                <Grid x:Name="RecordingGrid">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+
+                    <!-- Recording indicator -->
+                    <Border Grid.Row="0"
+                            Background="#F44336"
+                            Padding="10,6"
+                            Visibility="{Binding RecordingIndicatorVisibility, Converter={StaticResource BoolToVisibility}}">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <Ellipse Grid.Column="0" Width="8" Height="8" Fill="White" Margin="0,0,8,0" />
+                            <TextBlock Grid.Column="1"
+                                       Text="Recording Actions..."
+                                       FontWeight="SemiBold"
+                                       Foreground="White"
+                                       FontSize="12" />
+                            <TextBlock Grid.Column="2"
+                                       Text="{Binding ActionCount, StringFormat='{}{0} actions'}"
+                                       Foreground="White"
+                                       FontSize="11"
+                                       Opacity="0.9" />
+                        </Grid>
+                    </Border>
+
+                    <!-- Pattern suggestion -->
+                    <Border Grid.Row="1"
+                            Background="#E3F2FD"
+                            Padding="10,8"
+                            BorderThickness="0,0,0,1"
+                            BorderBrush="#BBDEFB"
+                            Visibility="{Binding HasSuggestedPattern, Converter={StaticResource BoolToVisibility}}">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0"
+                                       Text="&#x1F4A1;"
+                                       FontSize="14"
+                                       Margin="0,0,8,0"
+                                       VerticalAlignment="Center" />
+                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                <TextBlock FontWeight="SemiBold" FontSize="11" Foreground="#1565C0">
+                                    <Run Text="Pattern Detected: " />
+                                    <Run Text="{Binding SuggestedPattern.Description}" />
+                                </TextBlock>
+                                <TextBlock FontSize="10" Foreground="#666">
+                                    <Run Text="Seen " />
+                                    <Run Text="{Binding SuggestedPattern.Occurrences}" />
+                                    <Run Text=" times" />
+                                </TextBlock>
+                            </StackPanel>
+                            <Button Grid.Column="2"
+                                    Content="Save"
+                                    Padding="10,4"
+                                    Margin="0,0,6,0"
+                                    Command="{Binding SavePatternCommand}"
+                                    Background="#1a73e8"
+                                    Foreground="White"
+                                    FontWeight="SemiBold"
+                                    FontSize="10"
+                                    BorderThickness="0" />
+                            <Button Grid.Column="3"
+                                    Content="&#x2715;"
+                                    Padding="6,4"
+                                    Command="{Binding DismissPatternCommand}"
+                                    FontSize="10"
+                                    Background="Transparent"
+                                    BorderThickness="0" />
+                        </Grid>
+                    </Border>
+
+                    <!-- Actions list -->
+                    <Grid Grid.Row="2">
+                        <!-- Empty state -->
+                        <StackPanel HorizontalAlignment="Center"
+                                    VerticalAlignment="Center"
+                                    Visibility="{Binding ShowEmptyState, Converter={StaticResource BoolToVisibility}}">
+                            <TextBlock Text="No actions recorded yet"
+                                       HorizontalAlignment="Center"
+                                       Foreground="Gray"
+                                       FontSize="12" />
+                            <TextBlock Text="Click 'Start Recording' and work in Revit"
+                                       HorizontalAlignment="Center"
+                                       Foreground="#999"
+                                       FontSize="11"
+                                       Margin="0,4,0,0" />
+                        </StackPanel>
+
+                        <!-- Actions ListView -->
+                        <ListView ItemsSource="{Binding Actions}"
+                                  BorderThickness="0"
+                                  Margin="4"
+                                  SelectionMode="Extended"
+                                  HorizontalContentAlignment="Stretch">
+                            <ListView.ItemContainerStyle>
+                                <Style TargetType="ListViewItem">
+                                    <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                                    <Setter Property="Padding" Value="0" />
+                                </Style>
+                            </ListView.ItemContainerStyle>
+                            <ListView.ItemTemplate>
+                                <DataTemplate>
+                                    <Border BorderBrush="#e0e0e0" BorderThickness="0,0,0,1" Padding="4,6">
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="24" />
+                                                <ColumnDefinition Width="24" />
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="Auto" />
+                                                <ColumnDefinition Width="50" />
+                                            </Grid.ColumnDefinitions>
+
+                                            <!-- Checkbox for selection -->
+                                            <CheckBox Grid.Column="0"
+                                                      IsChecked="{Binding IsSelected}"
+                                                      VerticalAlignment="Center" />
+
+                                            <!-- Action type icon -->
+                                            <TextBlock Grid.Column="1"
+                                                       Text="{Binding ActionIcon}"
+                                                       Foreground="{Binding ActionColor}"
+                                                       FontSize="14"
+                                                       FontWeight="Bold"
+                                                       VerticalAlignment="Center"
+                                                       HorizontalAlignment="Center" />
+
+                                            <!-- Description -->
+                                            <StackPanel Grid.Column="2" Margin="4,0">
+                                                <TextBlock Text="{Binding Description}"
+                                                           FontWeight="SemiBold"
+                                                           FontSize="11" />
+                                                <StackPanel Orientation="Horizontal">
+                                                    <TextBlock Text="{Binding Category}"
+                                                               FontSize="10"
+                                                               Foreground="#666"
+                                                               Visibility="{Binding Category, Converter={StaticResource NullToCollapsed}}" />
+                                                    <TextBlock Text="{Binding ElementSummary}"
+                                                               FontSize="10"
+                                                               Foreground="#888"
+                                                               Margin="8,0,0,0" />
+                                                </StackPanel>
+                                            </StackPanel>
+
+                                            <!-- Timestamp -->
+                                            <TextBlock Grid.Column="3"
+                                                       Text="{Binding TimestampText}"
+                                                       FontSize="10"
+                                                       Foreground="#888"
+                                                       VerticalAlignment="Center"
+                                                       Margin="4,0" />
+
+                                            <!-- Mapped tool indicator -->
+                                            <TextBlock Grid.Column="4"
+                                                       Text="{Binding MappedToolName}"
+                                                       FontSize="9"
+                                                       Foreground="#999"
+                                                       VerticalAlignment="Center"
+                                                       TextTrimming="CharacterEllipsis"
+                                                       ToolTip="{Binding MappedToolName}" />
+                                        </Grid>
+                                    </Border>
+                                </DataTemplate>
+                            </ListView.ItemTemplate>
+                        </ListView>
+                    </Grid>
+
+                    <!-- Action bar -->
+                    <Border Grid.Row="3" Padding="8,6" BorderThickness="0,1,0,0" BorderBrush="#ddd">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+
+                            <!-- Record toggle button -->
+                            <Button Grid.Column="0"
+                                    Content="{Binding RecordingButtonText}"
+                                    Padding="12,4"
+                                    Margin="0,0,6,0"
+                                    FontSize="11"
+                                    FontWeight="SemiBold">
+                                <Button.Style>
+                                    <Style TargetType="Button">
+                                        <Setter Property="Command" Value="{Binding StartRecordingCommand}" />
+                                        <Setter Property="Background" Value="#4CAF50" />
+                                        <Setter Property="Foreground" Value="White" />
+                                        <Setter Property="BorderThickness" Value="0" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding IsRecording}" Value="True">
+                                                <Setter Property="Command" Value="{Binding StopRecordingCommand}" />
+                                                <Setter Property="Background" Value="#F44336" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Button.Style>
+                            </Button>
+
+                            <!-- Status text -->
+                            <TextBlock Grid.Column="1"
+                                       Text="{Binding StatusText}"
+                                       FontSize="11"
+                                       Foreground="#666"
+                                       VerticalAlignment="Center"
+                                       Margin="8,0" />
+
+                            <!-- Clear button -->
+                            <Button Grid.Column="2"
+                                    Content="Clear"
+                                    Padding="12,4"
+                                    Margin="0,0,6,0"
+                                    Command="{Binding ClearRecordingCommand}"
+                                    FontSize="11" />
+
+                            <!-- Save as Workflow button -->
+                            <Button Grid.Column="3"
+                                    Content="Save as Workflow"
+                                    Padding="12,4"
+                                    Command="{Binding SaveAsWorkflowCommand}"
+                                    Background="#1a73e8"
+                                    Foreground="White"
+                                    FontWeight="SemiBold"
+                                    FontSize="11"
+                                    BorderThickness="0" />
+                        </Grid>
+                    </Border>
+                </Grid>
+            </TabItem>
+        </TabControl>
     </Grid>
 </UserControl>

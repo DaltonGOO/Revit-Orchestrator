@@ -1,0 +1,395 @@
+<Window x:Class="RevitOrchestrator.UI.ToolEditorDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Edit Tool Contract"
+        Width="780"
+        Height="600"
+        WindowStartupLocation="CenterOwner"
+        ShowInTaskbar="False"
+        ResizeMode="CanResizeWithGrip">
+
+    <Window.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolToVis" />
+    </Window.Resources>
+
+    <Grid Margin="12">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <!-- Main two-column layout -->
+        <Grid Grid.Row="0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="55*" />
+                <ColumnDefinition Width="8" />
+                <ColumnDefinition Width="45*" />
+            </Grid.ColumnDefinitions>
+
+            <!-- Left column: Parameters -->
+            <Grid Grid.Column="0">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+
+                <!-- Parameter header -->
+                <Grid Grid.Row="0" Margin="0,0,0,8">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Grid.Column="0" Text="Parameters"
+                               FontWeight="SemiBold" FontSize="14"
+                               VerticalAlignment="Center" />
+                    <Button Grid.Column="1" Content="+ Add" Padding="8,3"
+                            Margin="0,0,4,0" FontSize="11"
+                            Command="{Binding AddParameterCommand}" />
+                    <Button Grid.Column="2" Content="- Remove" Padding="8,3"
+                            FontSize="11"
+                            Command="{Binding RemoveParameterCommand}" />
+                </Grid>
+
+                <!-- Parameter list -->
+                <ListView Grid.Row="1"
+                          ItemsSource="{Binding Parameters}"
+                          SelectedItem="{Binding SelectedParameter}"
+                          BorderThickness="1"
+                          BorderBrush="#ccc"
+                          Margin="0,0,0,8">
+                    <ListView.ItemTemplate>
+                        <DataTemplate>
+                            <Grid Margin="2,4">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Grid.Column="0"
+                                           Text="{Binding Name}"
+                                           FontWeight="SemiBold"
+                                           FontSize="12"
+                                           VerticalAlignment="Center" />
+                                <Border Grid.Column="1"
+                                        CornerRadius="3"
+                                        Background="#e3f2fd"
+                                        Padding="6,1"
+                                        Margin="4,0"
+                                        VerticalAlignment="Center">
+                                    <TextBlock Text="{Binding Type}"
+                                               FontSize="10"
+                                               Foreground="#1565C0" />
+                                </Border>
+                                <TextBlock Grid.Column="2"
+                                           Text="*"
+                                           FontWeight="Bold"
+                                           Foreground="#F44336"
+                                           FontSize="14"
+                                           VerticalAlignment="Center"
+                                           Visibility="{Binding IsRequired, Converter={StaticResource BoolToVis}}" />
+                            </Grid>
+                        </DataTemplate>
+                    </ListView.ItemTemplate>
+                </ListView>
+
+                <!-- Selected parameter detail -->
+                <Border Grid.Row="2"
+                        Background="#f9f9f9"
+                        BorderBrush="#ddd"
+                        BorderThickness="1"
+                        CornerRadius="4"
+                        Padding="10"
+                        Visibility="{Binding HasSelectedParameter, Converter={StaticResource BoolToVis}}">
+                    <StackPanel DataContext="{Binding SelectedParameter}">
+                        <Grid Margin="0,0,0,6">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="80" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Text="Name:" FontSize="11" VerticalAlignment="Center" />
+                            <TextBox Grid.Column="1"
+                                     Text="{Binding Name, UpdateSourceTrigger=PropertyChanged}"
+                                     FontSize="11" Padding="4,3" />
+                        </Grid>
+                        <Grid Margin="0,0,0,6">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="80" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Text="Type:" FontSize="11" VerticalAlignment="Center" />
+                            <ComboBox Grid.Column="1"
+                                      SelectedItem="{Binding Type}"
+                                      ItemsSource="{Binding DataContext.AvailableTypes, RelativeSource={RelativeSource AncestorType=Window}}"
+                                      FontSize="11" Padding="4,3" />
+                        </Grid>
+                        <Grid Margin="0,0,0,6">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="80" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Text="Description:" FontSize="11" VerticalAlignment="Top" Margin="0,4,0,0" />
+                            <TextBox Grid.Column="1"
+                                     Text="{Binding Description, UpdateSourceTrigger=PropertyChanged}"
+                                     FontSize="11" Padding="4,3"
+                                     TextWrapping="Wrap" AcceptsReturn="True"
+                                     MaxHeight="50"
+                                     VerticalScrollBarVisibility="Auto" />
+                        </Grid>
+                        <Grid Margin="0,0,0,6">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="80" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Text="Default:" FontSize="11" VerticalAlignment="Center" />
+                            <TextBox Grid.Column="1"
+                                     Text="{Binding DefaultValue, UpdateSourceTrigger=PropertyChanged}"
+                                     FontSize="11" Padding="4,3" />
+                        </Grid>
+                        <CheckBox Content="Required"
+                                  IsChecked="{Binding IsRequired}"
+                                  FontSize="11"
+                                  Margin="0,0,0,6" />
+
+                        <!-- Constraints: numeric -->
+                        <StackPanel Visibility="{Binding IsNumericType, Converter={StaticResource BoolToVis}}"
+                                    Margin="0,0,0,4">
+                            <TextBlock Text="Constraints:" FontSize="10" FontWeight="SemiBold" Foreground="#666" Margin="0,0,0,4" />
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="80" />
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="80" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Text="Min:" FontSize="11" VerticalAlignment="Center" />
+                                <TextBox Grid.Column="1"
+                                         Text="{Binding Minimum, UpdateSourceTrigger=PropertyChanged}"
+                                         FontSize="11" Padding="4,3" Margin="0,0,8,0" />
+                                <TextBlock Grid.Column="2" Text="Max:" FontSize="11" VerticalAlignment="Center" />
+                                <TextBox Grid.Column="3"
+                                         Text="{Binding Maximum, UpdateSourceTrigger=PropertyChanged}"
+                                         FontSize="11" Padding="4,3" />
+                            </Grid>
+                        </StackPanel>
+
+                        <!-- Constraints: string enum -->
+                        <StackPanel Visibility="{Binding IsStringType, Converter={StaticResource BoolToVis}}"
+                                    Margin="0,0,0,4">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="80" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Text="Enum:" FontSize="11" VerticalAlignment="Center" />
+                                <TextBox Grid.Column="1"
+                                         Text="{Binding EnumValues, UpdateSourceTrigger=PropertyChanged}"
+                                         FontSize="11" Padding="4,3"
+                                         ToolTip="Comma-separated allowed values" />
+                            </Grid>
+                        </StackPanel>
+
+                        <!-- Constraints: array items -->
+                        <StackPanel Visibility="{Binding IsArrayType, Converter={StaticResource BoolToVis}}"
+                                    Margin="0,0,0,4">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="80" />
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="80" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Text="Min Items:" FontSize="11" VerticalAlignment="Center" />
+                                <TextBox Grid.Column="1"
+                                         Text="{Binding MinItems, UpdateSourceTrigger=PropertyChanged}"
+                                         FontSize="11" Padding="4,3" Margin="0,0,8,0" />
+                                <TextBlock Grid.Column="2" Text="Max Items:" FontSize="11" VerticalAlignment="Center" />
+                                <TextBox Grid.Column="3"
+                                         Text="{Binding MaxItems, UpdateSourceTrigger=PropertyChanged}"
+                                         FontSize="11" Padding="4,3" />
+                            </Grid>
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+            </Grid>
+
+            <!-- Separator -->
+            <GridSplitter Grid.Column="1" Width="4"
+                          HorizontalAlignment="Center"
+                          VerticalAlignment="Stretch"
+                          Background="#ddd" />
+
+            <!-- Right column: Metadata + Execution -->
+            <ScrollViewer Grid.Column="2" VerticalScrollBarVisibility="Auto">
+                <StackPanel Margin="4,0,0,0">
+
+                    <!-- General section -->
+                    <TextBlock Text="General" FontWeight="SemiBold" FontSize="13" Margin="0,0,0,8" />
+
+                    <Grid Margin="0,0,0,6">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="80" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Text="Name:" FontSize="11" VerticalAlignment="Center" />
+                        <TextBox Grid.Column="1"
+                                 Text="{Binding ToolName}"
+                                 FontSize="11" Padding="4,3"
+                                 IsReadOnly="True"
+                                 Background="#f0f0f0" />
+                    </Grid>
+                    <Grid Margin="0,0,0,6">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="80" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Text="Adapter:" FontSize="11" VerticalAlignment="Center" />
+                        <TextBox Grid.Column="1"
+                                 Text="{Binding Adapter}"
+                                 FontSize="11" Padding="4,3"
+                                 IsReadOnly="True"
+                                 Background="#f0f0f0" />
+                    </Grid>
+                    <Grid Margin="0,0,0,6">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="80" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Text="Description:" FontSize="11" VerticalAlignment="Top" Margin="0,4,0,0" />
+                        <TextBox Grid.Column="1"
+                                 Text="{Binding Description, UpdateSourceTrigger=PropertyChanged}"
+                                 FontSize="11" Padding="4,3"
+                                 TextWrapping="Wrap" AcceptsReturn="True"
+                                 Height="60"
+                                 VerticalScrollBarVisibility="Auto" />
+                    </Grid>
+                    <Grid Margin="0,0,0,6">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="80" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Text="Version:" FontSize="11" VerticalAlignment="Center" />
+                        <TextBox Grid.Column="1"
+                                 Text="{Binding Version, UpdateSourceTrigger=PropertyChanged}"
+                                 FontSize="11" Padding="4,3" />
+                    </Grid>
+                    <Grid Margin="0,0,0,6">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="80" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Text="Author:" FontSize="11" VerticalAlignment="Center" />
+                        <TextBox Grid.Column="1"
+                                 Text="{Binding Author, UpdateSourceTrigger=PropertyChanged}"
+                                 FontSize="11" Padding="4,3" />
+                    </Grid>
+                    <Grid Margin="0,0,0,6">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="80" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Text="Tags:" FontSize="11" VerticalAlignment="Center" />
+                        <TextBox Grid.Column="1"
+                                 Text="{Binding TagsText, UpdateSourceTrigger=PropertyChanged}"
+                                 FontSize="11" Padding="4,3"
+                                 ToolTip="Comma-separated tags" />
+                    </Grid>
+
+                    <!-- Execution section -->
+                    <Border BorderThickness="0,1,0,0" BorderBrush="#ddd" Margin="0,8,0,0" Padding="0,8,0,0">
+                        <StackPanel>
+                            <TextBlock Text="Execution Modes" FontWeight="SemiBold" FontSize="13" Margin="0,0,0,8" />
+                            <CheckBox Content="Headless (structured inputs)" IsChecked="{Binding SupportsHeadless}"
+                                      FontSize="11" Margin="0,0,0,4" />
+                            <CheckBox Content="Interactive (native UI)" IsChecked="{Binding SupportsInteractive}"
+                                      FontSize="11" Margin="0,0,0,4" />
+                            <Grid Margin="0,4,0,0"
+                                  Visibility="{Binding SupportsInteractive, Converter={StaticResource BoolToVis}}">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="80" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Text="Hint:" FontSize="11" VerticalAlignment="Center" />
+                                <TextBox Grid.Column="1"
+                                         Text="{Binding InteractiveHint, UpdateSourceTrigger=PropertyChanged}"
+                                         FontSize="11" Padding="4,3"
+                                         ToolTip="Describes what the native UI does" />
+                            </Grid>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- Side Effects section -->
+                    <Border BorderThickness="0,1,0,0" BorderBrush="#ddd" Margin="0,8,0,0" Padding="0,8,0,0">
+                        <StackPanel>
+                            <TextBlock Text="Side Effects" FontWeight="SemiBold" FontSize="13" Margin="0,0,0,8" />
+                            <CheckBox Content="Creates elements" IsChecked="{Binding CreatesElements}"
+                                      FontSize="11" Margin="0,0,0,3" />
+                            <CheckBox Content="Modifies elements" IsChecked="{Binding ModifiesElements}"
+                                      FontSize="11" Margin="0,0,0,3" />
+                            <CheckBox Content="Deletes elements" IsChecked="{Binding DeletesElements}"
+                                      FontSize="11" Margin="0,0,0,3" />
+                            <CheckBox Content="Modifies parameters" IsChecked="{Binding ModifiesParameters}"
+                                      FontSize="11" Margin="0,0,0,3" />
+                            <CheckBox Content="Changes view" IsChecked="{Binding ChangesView}"
+                                      FontSize="11" Margin="0,0,0,3" />
+                            <CheckBox Content="File I/O" IsChecked="{Binding FileIo}"
+                                      FontSize="11" Margin="0,0,0,3" />
+                        </StackPanel>
+                    </Border>
+
+                    <!-- Permissions section -->
+                    <Border BorderThickness="0,1,0,0" BorderBrush="#ddd" Margin="0,8,0,0" Padding="0,8,0,0">
+                        <StackPanel>
+                            <TextBlock Text="Permissions" FontWeight="SemiBold" FontSize="13" Margin="0,0,0,8" />
+                            <Grid Margin="0,0,0,6">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="80" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Text="Mode:" FontSize="11" VerticalAlignment="Center" />
+                                <ComboBox Grid.Column="1"
+                                          SelectedItem="{Binding PermissionMode}"
+                                          ItemsSource="{Binding AvailablePermissionModes}"
+                                          FontSize="11" Padding="4,3" />
+                            </Grid>
+                            <CheckBox Content="Approval required" IsChecked="{Binding ApprovalRequired}"
+                                      FontSize="11" />
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+            </ScrollViewer>
+        </Grid>
+
+        <!-- Bottom bar -->
+        <Grid Grid.Row="1" Margin="0,12,0,0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+
+            <TextBlock Grid.Column="0"
+                       Text="{Binding StatusText}"
+                       FontSize="11"
+                       Foreground="#666"
+                       VerticalAlignment="Center" />
+
+            <Button Grid.Column="1"
+                    Content="Cancel"
+                    Padding="20,8"
+                    Margin="0,0,8,0"
+                    Click="CancelButton_Click" />
+
+            <Button Grid.Column="2"
+                    Content="Save"
+                    Padding="20,8"
+                    Background="#1a73e8"
+                    Foreground="White"
+                    FontWeight="SemiBold"
+                    BorderThickness="0"
+                    Click="SaveButton_Click" />
+        </Grid>
+    </Grid>
+
+</Window>

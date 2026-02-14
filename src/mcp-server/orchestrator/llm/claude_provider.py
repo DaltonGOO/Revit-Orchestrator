@@ -76,7 +76,10 @@ class ClaudeProvider(BaseLLMProvider):
         if tools:
             kwargs["tools"] = tools
 
+        logger.debug("Sending request to Claude API (model=%s, messages=%d)",
+                     self._model, len(api_messages))
         response = await self._client.messages.create(**kwargs)
+        logger.debug("Claude API responded (stop_reason=%s)", response.stop_reason)
 
         # Parse response
         content_text = ""
@@ -108,7 +111,7 @@ class ClaudeProvider(BaseLLMProvider):
         tools = []
         for defn in tool_definitions:
             tool: dict[str, Any] = {
-                "name": defn["name"],
+                "name": defn["name"].replace(".", "_"),
                 "description": defn["description"],
                 "input_schema": defn["parameters"],
             }

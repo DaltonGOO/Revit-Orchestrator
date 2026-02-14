@@ -1,0 +1,133 @@
+{
+  "name": "recorded.revit.create_wall2",
+  "description": "Recorded workflow with 6 steps",
+  "adapter": "workflow",
+  "parameters": {
+    "type": "object",
+    "properties": {},
+    "required": []
+  },
+  "workflow": {
+    "steps": [
+      {
+        "id": "step1",
+        "tool": "revit.create_wall",
+        "args": {
+          "start_point": [
+            -52.11605059380987,
+            -122.93725901403144,
+            -5.611022647993497e-15
+          ],
+          "end_point": [
+            -165.3784298063023,
+            -40.64732369308494,
+            -5.611022647993497e-15
+          ],
+          "level_name": "L1_43_High",
+          "type_name": "Foundation - 24\" Concrete",
+          "height": 12
+        }
+      },
+      {
+        "id": "step2",
+        "tool": "revit.create_wall",
+        "args": {
+          "start_point": [
+            -165.3784298063023,
+            -40.64732369308494,
+            -5.6110226479934965e-15
+          ],
+          "end_point": [
+            -142.6023538372804,
+            44.35414902035304,
+            -5.611022647993497e-15
+          ],
+          "level_name": "L1_43_High",
+          "type_name": "Foundation - 24\" Concrete",
+          "height": 12
+        }
+      },
+      {
+        "id": "step3",
+        "tool": "revit.create_wall",
+        "args": {
+          "start_point": [
+            -142.6023538372804,
+            44.354149020353034,
+            -5.611022647993497e-15
+          ],
+          "end_point": [
+            -46.86984907822658,
+            84.99018638323747,
+            -5.611022647993497e-15
+          ],
+          "level_name": "L1_43_High",
+          "type_name": "Foundation - 24\" Concrete",
+          "height": 12
+        }
+      },
+      {
+        "id": "step4",
+        "tool": "revit.create_wall",
+        "args": {
+          "start_point": [
+            -46.86984907822658,
+            84.99018638323747,
+            -5.611022647993497e-15
+          ],
+          "end_point": [
+            68.5799522641735,
+            20.995316510720663,
+            -5.611022647993497e-15
+          ],
+          "level_name": "L1_43_High",
+          "type_name": "Foundation - 24\" Concrete",
+          "height": 12
+        }
+      },
+      {
+        "id": "step5",
+        "tool": "revit.create_wall",
+        "args": {
+          "start_point": [
+            68.5799522641735,
+            20.99531651072066,
+            -5.611022647993498e-15
+          ],
+          "end_point": [
+            149.12768042762042,
+            -107.90799410505623,
+            -5.611022647993497e-15
+          ],
+          "level_name": "L1_43_High",
+          "type_name": "Foundation - 24\" Concrete",
+          "height": 12
+        }
+      },
+      {
+        "id": "step6",
+        "tool": "revit.create_wall",
+        "args": {
+          "start_point": [
+            149.1276804276204,
+            -107.90799410505622,
+            -5.6110226479935005e-15
+          ],
+          "end_point": [
+            64.16399096527604,
+            -238.74060270454228,
+            -5.611022647993497e-15
+          ],
+          "level_name": "L1_43_High",
+          "type_name": "Foundation - 24\" Concrete",
+          "height": 12
+        }
+      }
+    ]
+  },
+  "governance": {
+    "author": "Dalton",
+    "version": "1.0.0",
+    "permission_mode": "write"
+  }
+}

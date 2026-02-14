@@ -30,21 +30,49 @@ class Config:
     # Hot-reload
     watch_tools_dir: bool = True
 
+    # Audit logging
+    audit_log_dir: Path = field(default_factory=lambda: Path("logs"))
+
+    # Event store (SQLite)
+    event_store_path: Path = field(default_factory=lambda: Path("data/orchestrator.db"))
+    blob_store_dir: Path = field(default_factory=lambda: Path("data/blobs"))
+    migrate_jsonl_on_startup: bool = True
+
+    # Embeddings
+    embedding_model: str = "all-MiniLM-L6-v2"
+
     @classmethod
     def from_env(cls) -> Config:
         """Load configuration from environment variables."""
+        defaults = cls()
         return cls(
-            pipe_name=os.getenv("ORCHESTRATOR_PIPE_NAME", cls.pipe_name),
-            tools_dir=Path(os.getenv("ORCHESTRATOR_TOOLS_DIR", str(cls.tools_dir.fget(None)))),  # type: ignore[union-attr]
-            llm_provider=os.getenv("ORCHESTRATOR_LLM_PROVIDER", cls.llm_provider),
+            pipe_name=os.getenv("ORCHESTRATOR_PIPE_NAME", defaults.pipe_name),
+            tools_dir=Path(os.getenv("ORCHESTRATOR_TOOLS_DIR", str(defaults.tools_dir))),
+            handlers_dir=Path(os.getenv("ORCHESTRATOR_HANDLERS_DIR", str(defaults.handlers_dir))),
+            llm_provider=os.getenv("ORCHESTRATOR_LLM_PROVIDER", defaults.llm_provider),
             anthropic_api_key=os.getenv("ANTHROPIC_API_KEY", ""),
-            anthropic_model=os.getenv("ANTHROPIC_MODEL", cls.anthropic_model),
+            anthropic_model=os.getenv("ANTHROPIC_MODEL", defaults.anthropic_model),
             openai_api_key=os.getenv("OPENAI_API_KEY", ""),
-            openai_model=os.getenv("OPENAI_MODEL", cls.openai_model),
+            openai_model=os.getenv("OPENAI_MODEL", defaults.openai_model),
             pipe_timeout_seconds=float(
-                os.getenv("ORCHESTRATOR_PIPE_TIMEOUT", str(cls.pipe_timeout_seconds))
+                os.getenv("ORCHESTRATOR_PIPE_TIMEOUT", str(defaults.pipe_timeout_seconds))
             ),
             watch_tools_dir=os.getenv("ORCHESTRATOR_WATCH_TOOLS", "true").lower() == "true",
+            audit_log_dir=Path(
+                os.getenv("ORCHESTRATOR_AUDIT_LOG_DIR", str(defaults.audit_log_dir))
+            ),
+            event_store_path=Path(
+                os.getenv("ORCHESTRATOR_EVENT_STORE_PATH", str(defaults.event_store_path))
+            ),
+            blob_store_dir=Path(
+                os.getenv("ORCHESTRATOR_BLOB_STORE_DIR", str(defaults.blob_store_dir))
+            ),
+            migrate_jsonl_on_startup=os.getenv(
+                "ORCHESTRATOR_MIGRATE_JSONL", "true"
+            ).lower() == "true",
+            embedding_model=os.getenv(
+                "ORCHESTRATOR_EMBEDDING_MODEL", defaults.embedding_model
+            ),
         )
 
     @classmethod

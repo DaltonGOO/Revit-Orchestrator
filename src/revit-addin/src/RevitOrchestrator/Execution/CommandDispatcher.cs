@@ -1,3 +1,4 @@
+using System.Buffers;
 using System.Diagnostics;
 using System.Text.Json;
 using Autodesk.Revit.DB;
@@ -37,6 +38,9 @@ public sealed class CommandDispatcher
 
         try
         {
+            // Merge execution_mode into args so commands can read it
+            var args = MergeExecutionMode(toolCall.Args, toolCall.ExecutionMode);
+
             ToolResult result;
 
             if (command.RequiresTransaction)
@@ -44,11 +48,11 @@ public sealed class CommandDispatcher
                 result = TransactionWrapper.Execute(
                     doc,
                     $"Orchestrator: {toolCall.ToolName}",
-                    d => command.Execute(d, toolCall.Args));
+                    d => command.Execute(d, args));
             }
             else
             {
-                result = command.Execute(doc, toolCall.Args);
+                result = command.Execute(doc, args);
             }
 
             sw.Stop();
@@ -65,5 +69,29 @@ public sealed class CommandDispatcher
                 ex.Message,
                 sw.ElapsedMilliseconds);
         }
+    }
+
+    /// <summary>
+    /// Merge execution_mode into the args JsonElement so commands can read it
+    /// without changing the IRevitCommand interface.
+    /// </summary>
+    private static JsonElement MergeExecutionMode(JsonElement args, string executionMode)
+    {
+        if (string.IsNullOrEmpty(executionMode) || executionMode == "headless")
+            return args; // No need to merge for the default mode
+
+        var buffer = new ArrayBufferWriter<byte>();
+        using (var writer = new Utf8JsonWriter(buffer))
+        {
+            writer.WriteStartObject();
+            if (args.ValueKind == JsonValueKind.Object)
+            {
+                foreach (var prop in args.EnumerateObject())
+                    prop.WriteTo(writer);
+            }
+            writer.WriteString("execution_mode", executionMode);
+            writer.WriteEndObject();
+        }
+        return JsonDocument.Parse(buffer.WrittenMemory).RootElement;
     }
 }

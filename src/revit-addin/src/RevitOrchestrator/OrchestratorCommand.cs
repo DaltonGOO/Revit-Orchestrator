@@ -15,6 +15,9 @@ public sealed class OrchestratorCommand : IExternalCommand
 
     public Result Execute(ExternalCommandData commandData, ref string message, ElementSet elements)
     {
+        // Initialize action recorder if not already done
+        App.Instance?.InitializeActionRecorder(commandData.Application);
+
         var pane = commandData.Application.GetDockablePane(ChatPaneId);
 
         if (pane.IsShown())

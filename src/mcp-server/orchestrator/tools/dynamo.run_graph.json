@@ -2,6 +2,15 @@
   "name": "dynamo.run_graph",
   "adapter": "dynamo",
   "description": "Runs a Dynamo graph (.dyn file) within the active Revit session. Input parameters can be passed to override Dynamo input nodes.",
+  "version": "1.0.0",
+  "tags": ["dynamo", "automation"],
+  "permissions": {
+    "mode": "write"
+  },
+  "side_effects": ["creates_elements", "modifies_elements"],
+  "preconditions": [
+    { "check": "document_open" }
+  ],
   "parameters": {
     "type": "object",
     "properties": {

@@ -2,6 +2,15 @@
   "name": "pyrevit.run_script",
   "adapter": "pyrevit",
   "description": "Executes a pyRevit Python script by name or path. The script runs inside the Revit environment via pyRevit's CLI.",
+  "version": "1.0.0",
+  "tags": ["pyrevit", "scripting"],
+  "permissions": {
+    "mode": "write"
+  },
+  "side_effects": ["creates_elements", "modifies_elements"],
+  "preconditions": [
+    { "check": "document_open" }
+  ],
   "parameters": {
     "type": "object",
     "properties": {

@@ -1,0 +1,51 @@
+{
+  "name": "orchestrator.search_similar",
+  "adapter": "workflow",
+  "description": "Search for similar past tool executions or episodes using natural language. Finds historically similar operations by embedding similarity.",
+  "version": "1.0.0",
+  "tags": ["history", "search", "ml"],
+  "permissions": {
+    "mode": "read",
+    "approval_required": false
+  },
+  "side_effects": [],
+  "parameters": {
+    "type": "object",
+    "properties": {
+      "query": {
+        "type": "string",
+        "description": "Natural language description of what to search for (e.g., 'create walls along an axis', 'duct routing failures')"
+      },
+      "search_type": {
+        "type": "string",
+        "enum": ["episodes", "events"],
+        "description": "Search across full episodes (agentic loops) or individual tool events"
+      },
+      "limit": {
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 50,
+        "description": "Maximum number of results to return"
+      },
+      "doc_guid": {
+        "type": "string",
+        "description": "Optional: filter to a specific Revit document GUID"
+      }
+    },
+    "required": ["query"]
+  },
+  "returns": {
+    "type": "object",
+    "properties": {
+      "results": {
+        "type": "array",
+        "description": "Matching results with card_text, similarity score, and outcome"
+      },
+      "total": {
+        "type": "integer",
+        "description": "Number of results returned"
+      }
+    }
+  },
+  "handler": "orchestrator_search_similar"
+}

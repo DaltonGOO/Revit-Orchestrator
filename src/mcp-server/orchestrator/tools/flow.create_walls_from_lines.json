@@ -2,6 +2,13 @@
   "name": "flow.create_walls_from_lines",
   "adapter": "workflow",
   "description": "Creates multiple walls from a list of line segments. Each line is defined by a start and end point. All walls share the same height and wall type.",
+  "version": "1.0.0",
+  "tags": ["workflow", "walls", "geometry"],
+  "permissions": {
+    "mode": "write",
+    "categories": ["Walls"]
+  },
+  "side_effects": ["creates_elements"],
   "parameters": {
     "type": "object",
     "properties": {

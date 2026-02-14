@@ -1,0 +1,130 @@
+<Window x:Class="RevitOrchestrator.UI.RunWorkflowDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Run Tool"
+        Width="480"
+        Height="400"
+        WindowStartupLocation="CenterOwner"
+        ShowInTaskbar="False"
+        ResizeMode="CanResizeWithGrip">
+
+    <Window.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolToVis" />
+    </Window.Resources>
+
+    <Grid Margin="16">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <!-- Workflow name header -->
+        <TextBlock Grid.Row="0"
+                   Text="{Binding WorkflowName}"
+                   FontWeight="Bold"
+                   FontSize="16"
+                   Margin="0,0,0,4" />
+
+        <TextBlock Grid.Row="1"
+                   Text="{Binding WorkflowDescription}"
+                   FontSize="12"
+                   Foreground="#666"
+                   TextWrapping="Wrap"
+                   Margin="0,0,0,12" />
+
+        <!-- Execution mode picker — visible only when tool supports both modes -->
+        <StackPanel Grid.Row="2"
+                    Visibility="{Binding ShowModePicker, Converter={StaticResource BoolToVis}}"
+                    Margin="0,0,0,10">
+            <TextBlock Text="Execution Mode" FontWeight="SemiBold" FontSize="12" Margin="0,0,0,6" />
+            <StackPanel Orientation="Horizontal">
+                <RadioButton Content="Headless (structured inputs)"
+                             IsChecked="{Binding IsHeadlessMode}"
+                             FontSize="11"
+                             VerticalContentAlignment="Center" />
+                <RadioButton Content="Interactive (native UI)"
+                             IsChecked="{Binding IsInteractiveMode}"
+                             Margin="16,0,0,0"
+                             FontSize="11"
+                             VerticalContentAlignment="Center" />
+            </StackPanel>
+            <TextBlock Text="{Binding InteractiveHint}"
+                       Foreground="#666"
+                       FontSize="11"
+                       TextWrapping="Wrap"
+                       Margin="0,4,0,0"
+                       Visibility="{Binding IsInteractiveMode, Converter={StaticResource BoolToVis}}" />
+        </StackPanel>
+
+        <!-- Parameter inputs -->
+        <ScrollViewer Grid.Row="3" VerticalScrollBarVisibility="Auto">
+            <ItemsControl ItemsSource="{Binding Parameters}">
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                        <StackPanel Margin="0,0,0,10">
+                            <TextBlock FontWeight="SemiBold" FontSize="12" Margin="0,0,0,2">
+                                <Run Text="{Binding DisplayName, Mode=OneWay}" />
+                                <Run Text="{Binding TypeHint, Mode=OneWay}" FontSize="10" Foreground="#888" />
+                            </TextBlock>
+                            <TextBlock Text="{Binding Description}"
+                                       FontSize="10"
+                                       Foreground="#888"
+                                       Margin="0,0,0,4"
+                                       TextWrapping="Wrap" />
+
+                            <!-- ComboBox for dropdown hints -->
+                            <ComboBox ItemsSource="{Binding Options}"
+                                      Text="{Binding CurrentValueText, UpdateSourceTrigger=PropertyChanged}"
+                                      IsEditable="True"
+                                      FontSize="12"
+                                      Padding="6,4"
+                                      Visibility="{Binding HasOptions, Converter={StaticResource BoolToVis}}" />
+
+                            <!-- CheckBox for boolean type -->
+                            <CheckBox IsChecked="{Binding BoolValue}"
+                                      Content="{Binding DisplayName}"
+                                      FontSize="12"
+                                      Visibility="{Binding IsBoolType, Converter={StaticResource BoolToVis}}" />
+
+                            <!-- TextBox for default -->
+                            <TextBox Text="{Binding CurrentValueText, UpdateSourceTrigger=PropertyChanged}"
+                                     FontSize="12"
+                                     FontFamily="Consolas"
+                                     Padding="6,4"
+                                     Visibility="{Binding IsTextInput, Converter={StaticResource BoolToVis}}" />
+                        </StackPanel>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+        </ScrollViewer>
+
+        <!-- Status -->
+        <TextBlock Grid.Row="4"
+                   Text="{Binding StatusText}"
+                   FontSize="11"
+                   Foreground="#666"
+                   Margin="0,8,0,8"
+                   TextWrapping="Wrap" />
+
+        <!-- Buttons -->
+        <StackPanel Grid.Row="5" Orientation="Horizontal" HorizontalAlignment="Right">
+            <Button Content="Cancel"
+                    Padding="20,8"
+                    Margin="0,0,8,0"
+                    Click="CancelButton_Click" />
+            <Button Content="Run"
+                    Padding="20,8"
+                    Background="#1a73e8"
+                    Foreground="White"
+                    FontWeight="SemiBold"
+                    BorderThickness="0"
+                    Click="RunButton_Click"
+                    IsEnabled="{Binding CanRun}" />
+        </StackPanel>
+    </Grid>
+
+</Window>

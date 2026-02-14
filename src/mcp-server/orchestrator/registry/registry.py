@@ -34,6 +34,14 @@ class ToolRegistry:
             if errors:
                 logger.error("Tool '%s' has schema errors: %s", name, errors)
             else:
+                if definition.get("deprecated"):
+                    logger.warning(
+                        "Tool '%s' is deprecated%s",
+                        name,
+                        f" (superseded by {definition['superseded_by']})"
+                        if definition.get("superseded_by")
+                        else "",
+                    )
                 valid_tools[name] = definition
 
         with self._lock:
@@ -45,6 +53,14 @@ class ToolRegistry:
         with self._lock:
             return self._tools.get(name)
 
+    def get_by_version(self, name: str, version: str) -> dict[str, Any] | None:
+        """Get a tool definition by name, only if it matches the specified version."""
+        with self._lock:
+            tool = self._tools.get(name)
+            if tool is not None and tool.get("version") == version:
+                return tool
+            return None
+
     def list_tools(self) -> list[dict[str, Any]]:
         """Return all registered tool definitions."""
         with self._lock:
@@ -55,12 +71,28 @@ class ToolRegistry:
         with self._lock:
             return list(self._tools.keys())
 
+    def list_tools_by_tag(self, tag: str) -> list[dict[str, Any]]:
+        """Return all tool definitions that have the specified tag."""
+        with self._lock:
+            return [
+                t for t in self._tools.values()
+                if tag in t.get("tags", [])
+            ]
+
     def register(self, definition: dict[str, Any]) -> None:
         """Register or update a single tool definition."""
         errors = validate_tool_definition(definition)
         if errors:
             raise ValueError(f"Invalid tool definition: {errors}")
         name = definition["name"]
+        if definition.get("deprecated"):
+            logger.warning(
+                "Registering deprecated tool: %s%s",
+                name,
+                f" (superseded by {definition['superseded_by']})"
+                if definition.get("superseded_by")
+                else "",
+            )
         with self._lock:
             self._tools[name] = definition
         logger.info("Registered tool: %s", name)

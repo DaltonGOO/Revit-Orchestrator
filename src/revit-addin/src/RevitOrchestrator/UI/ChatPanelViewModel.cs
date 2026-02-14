@@ -3,6 +3,7 @@ using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using System.Windows.Input;
 using System.Windows.Media;
+using System.Windows.Threading;
 using RevitOrchestrator.Models;
 
 namespace RevitOrchestrator.UI;
@@ -15,20 +16,67 @@ public sealed class ChatPanelViewModel : INotifyPropertyChanged
     private string _inputText = string.Empty;
     private string _connectionStatus = "Disconnected";
     private Brush _statusColor = Brushes.Red;
+    private bool _isWaiting;
+    private ChatMessage? _thinkingMessage;
+
+    // Capture the dispatcher at construction time — Application.Current
+    // can be null in Revit dockable panes.
+    private readonly Dispatcher _dispatcher = Dispatcher.CurrentDispatcher;
 
     public ChatPanelViewModel()
     {
-        SendCommand = new RelayCommand(OnSend, () => !string.IsNullOrWhiteSpace(InputText));
+        SendCommand = new RelayCommand(OnSend, () => !string.IsNullOrWhiteSpace(InputText) && !IsWaiting);
 
-        // Subscribe to pipe listener status changes
+        // Subscribe to pipe listener events
         if (App.Instance?.PipeListener is { } listener)
         {
             listener.OnStatusChanged += status =>
             {
-                System.Windows.Application.Current?.Dispatcher.Invoke(() =>
+                _dispatcher.Invoke(() =>
                 {
                     ConnectionStatus = status;
                     StatusColor = listener.IsConnected ? Brushes.LimeGreen : Brushes.Red;
+                });
+            };
+
+            listener.OnChatStatus += status =>
+            {
+                _dispatcher.Invoke(() =>
+                {
+                    if (_thinkingMessage is not null)
+                    {
+                        _thinkingMessage.Content = status;
+                    }
+                    else
+                    {
+                        _thinkingMessage = new ChatMessage
+                        {
+                            Role = "system",
+                            Content = status,
+                        };
+                        Messages.Add(_thinkingMessage);
+                    }
+                });
+            };
+
+            listener.OnChatResponse += content =>
+            {
+                _dispatcher.Invoke(() =>
+                {
+                    // Remove the thinking message
+                    if (_thinkingMessage is not null)
+                    {
+                        Messages.Remove(_thinkingMessage);
+                        _thinkingMessage = null;
+                    }
+
+                    Messages.Add(new ChatMessage
+                    {
+                        Role = "assistant",
+                        Content = content,
+                    });
+
+                    IsWaiting = false;
                 });
             };
         }
@@ -59,26 +107,56 @@ public sealed class ChatPanelViewModel : INotifyPropertyChanged
         set { _statusColor = value; OnPropertyChanged(); }
     }
 
+    public bool IsWaiting
+    {
+        get => _isWaiting;
+        set
+        {
+            _isWaiting = value;
+            OnPropertyChanged();
+            (SendCommand as RelayCommand)?.RaiseCanExecuteChanged();
+        }
+    }
+
     public ICommand SendCommand { get; }
 
-    private void OnSend()
+    private async void OnSend()
     {
-        if (string.IsNullOrWhiteSpace(InputText)) return;
+        if (string.IsNullOrWhiteSpace(InputText) || IsWaiting) return;
 
-        var message = new ChatMessage
-        {
-            Role = "user",
-            Content = InputText.Trim(),
-        };
-        Messages.Add(message);
-        InputText = string.Empty;
-
-        // TODO: Send to MCP server via pipe for LLM processing
+        var userText = InputText.Trim();
         Messages.Add(new ChatMessage
         {
-            Role = "system",
-            Content = "Message received. LLM routing not yet connected.",
+            Role = "user",
+            Content = userText,
         });
+        InputText = string.Empty;
+
+        if (App.Instance?.PipeListener is not { } listener || !listener.IsConnected)
+        {
+            Messages.Add(new ChatMessage
+            {
+                Role = "system",
+                Content = "Not connected to the orchestrator server.",
+            });
+            return;
+        }
+
+        IsWaiting = true;
+
+        try
+        {
+            await listener.SendChatMessageAsync(userText);
+        }
+        catch (Exception ex)
+        {
+            IsWaiting = false;
+            Messages.Add(new ChatMessage
+            {
+                Role = "system",
+                Content = $"Failed to send message: {ex.Message}",
+            });
+        }
     }
 
     public event PropertyChangedEventHandler? PropertyChanged;
@@ -105,6 +183,31 @@ public sealed class RelayCommand : ICommand
 
     public bool CanExecute(object? parameter) => _canExecute?.Invoke() ?? true;
     public void Execute(object? parameter) => _execute();
+
+    public event EventHandler? CanExecuteChanged;
+
+    public void RaiseCanExecuteChanged()
+    {
+        CanExecuteChanged?.Invoke(this, EventArgs.Empty);
+    }
+}
+
+/// <summary>
+/// Generic ICommand implementation with parameter support.
+/// </summary>
+public sealed class RelayCommand<T> : ICommand
+{
+    private readonly Action<T?> _execute;
+    private readonly Func<T?, bool>? _canExecute;
+
+    public RelayCommand(Action<T?> execute, Func<T?, bool>? canExecute = null)
+    {
+        _execute = execute;
+        _canExecute = canExecute;
+    }
+
+    public bool CanExecute(object? parameter) => _canExecute?.Invoke((T?)parameter) ?? true;
+    public void Execute(object? parameter) => _execute((T?)parameter);
 
     public event EventHandler? CanExecuteChanged;
 

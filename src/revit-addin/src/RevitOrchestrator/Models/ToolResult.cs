@@ -43,6 +43,26 @@ public sealed class ToolResult
             DurationMs = durationMs,
         };
     }
+
+    /// <summary>
+    /// Creates a new ToolResult with model changes added to the data.
+    /// </summary>
+    public ToolResult WithModelChanges(ModelChanges changes)
+    {
+        var newData = new Dictionary<string, object?>(Data)
+        {
+            ["model_changes"] = changes.ToDictionary()
+        };
+
+        return new ToolResult
+        {
+            CallId = CallId,
+            Success = Success,
+            Data = newData,
+            Error = Error,
+            DurationMs = DurationMs,
+        };
+    }
 }
 
 public sealed class ToolError

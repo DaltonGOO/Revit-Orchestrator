@@ -28,7 +28,11 @@ class RevitAddinAdapter(BaseAdapter):
         self._connection = connection
 
     async def execute(
-        self, tool_name: str, args: dict[str, Any], handler: Any
+        self,
+        tool_name: str,
+        args: dict[str, Any],
+        handler: Any,
+        execution_mode: str = "headless",
     ) -> ToolResult:
         """Send a tool call over the pipe and wait for the result."""
         if self._connection is None:
@@ -37,7 +41,7 @@ class RevitAddinAdapter(BaseAdapter):
                 "Revit add-in is not connected",
             )
 
-        message = make_tool_call(tool_name, args)
+        message = make_tool_call(tool_name, args, execution_mode=execution_mode)
         try:
             result = await self._connection.send_and_wait(message)
             payload = result.get("payload", {})

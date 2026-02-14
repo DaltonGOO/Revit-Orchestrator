@@ -11,7 +11,7 @@ import jsonschema
 
 logger = logging.getLogger(__name__)
 
-_CONTRACTS_DIR = Path(__file__).parent.parent.parent.parent / "contracts"
+_CONTRACTS_DIR = Path(__file__).parent.parent.parent.parent.parent / "contracts"
 
 
 def _load_schema(name: str) -> dict[str, Any]:
@@ -50,3 +50,33 @@ def validate_tool_args(
     """
     validator = jsonschema.Draft202012Validator(parameters_schema)
     return [e.message for e in validator.iter_errors(args)]
+
+
+def get_tool_permissions(definition: dict[str, Any]) -> dict[str, Any]:
+    """Extract permissions from a tool definition with defaults.
+
+    Returns a dict with at least 'mode' and 'approval_required'.
+    """
+    perms = definition.get("permissions", {})
+    return {
+        "mode": perms.get("mode", "write"),
+        "categories": perms.get("categories", []),
+        "approval_required": perms.get("approval_required", False),
+    }
+
+
+def get_tool_side_effects(definition: dict[str, Any]) -> list[str]:
+    """Extract side effects from a tool definition.
+
+    Returns a list of side effect strings, or empty list if none specified.
+    """
+    return list(definition.get("side_effects", []))
+
+
+def get_execution_modes(definition: dict[str, Any]) -> list[str]:
+    """Extract supported execution modes from a tool definition.
+
+    Returns a list of mode strings (e.g. ["headless", "interactive"]).
+    Defaults to ["headless"] if not specified.
+    """
+    return definition.get("execution", {}).get("modes", ["headless"])

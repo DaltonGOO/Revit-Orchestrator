@@ -7,8 +7,8 @@
   "properties": {
     "name": {
       "type": "string",
-      "pattern": "^[a-z][a-z0-9]*\\.[a-z_][a-z0-9_]*$",
-      "description": "Unique tool identifier in the form adapter.tool_name"
+      "pattern": "^[a-z][a-z0-9]*(\\.[a-z_][a-z0-9_]*)+$",
+      "description": "Unique tool identifier in dot-separated segments (e.g., adapter.tool_name or captured.my_workflow)"
     },
     "adapter": {
       "type": "string",
@@ -48,6 +48,184 @@
         },
         "required": ["description", "args"]
       }
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$",
+      "description": "Semantic version of this tool definition (e.g., 1.0.0)"
+    },
+    "author": {
+      "type": "string",
+      "description": "Author or owner of this tool"
+    },
+    "tags": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Tags for categorization and filtering"
+    },
+    "deprecated": {
+      "type": "boolean",
+      "description": "Whether this tool is deprecated"
+    },
+    "superseded_by": {
+      "type": "string",
+      "description": "Name of the tool that replaces this one"
+    },
+    "permissions": {
+      "type": "object",
+      "properties": {
+        "mode": {
+          "type": "string",
+          "enum": ["read", "write"],
+          "description": "Whether the tool reads or writes to the model"
+        },
+        "categories": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Revit categories affected by this tool"
+        },
+        "approval_required": {
+          "type": "boolean",
+          "description": "Whether user approval is required before execution"
+        }
+      },
+      "additionalProperties": false
+    },
+    "side_effects": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": [
+          "creates_elements",
+          "modifies_elements",
+          "deletes_elements",
+          "modifies_parameters",
+          "changes_view",
+          "file_io"
+        ]
+      },
+      "description": "Side effects of executing this tool"
+    },
+    "preconditions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "check": {
+            "type": "string",
+            "enum": ["revit_version_gte", "document_open", "worksharing_enabled"]
+          },
+          "value": {}
+        },
+        "required": ["check"],
+        "additionalProperties": false
+      },
+      "description": "Preconditions that must be met before execution"
+    },
+    "cost": {
+      "type": "object",
+      "properties": {
+        "estimated_duration_ms": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "cacheable": { "type": "boolean" },
+        "incremental": { "type": "boolean" }
+      },
+      "additionalProperties": false,
+      "description": "Cost and caching hints for the tool"
+    },
+    "workflow": {
+      "type": "object",
+      "properties": {
+        "steps": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "description": "Unique step identifier"
+              },
+              "tool": {
+                "type": "string",
+                "description": "Tool name to call"
+              },
+              "args": {
+                "type": "object",
+                "description": "Static arguments"
+              },
+              "bindings": {
+                "type": "object",
+                "description": "Dynamic args: key=param name, value=expression like '$steps.step1.data.element_id'",
+                "additionalProperties": { "type": "string" }
+              },
+              "guard": {
+                "type": "string",
+                "description": "Expression that must be truthy to run this step"
+              },
+              "on_failure": {
+                "type": "string",
+                "enum": ["stop", "skip", "retry"],
+                "default": "stop"
+              },
+              "max_retries": {
+                "type": "integer",
+                "minimum": 0,
+                "default": 0
+              },
+              "timeout_ms": {
+                "type": "integer",
+                "minimum": 0
+              }
+            },
+            "required": ["tool"]
+          }
+        }
+      },
+      "required": ["steps"],
+      "additionalProperties": false,
+      "description": "Workflow definition with ordered steps"
+    },
+    "governance": {
+      "type": "object",
+      "properties": {
+        "author": { "type": "string", "description": "Author or owner of this workflow" },
+        "tags": { "type": "array", "items": { "type": "string" }, "description": "Tags for categorization" },
+        "version": { "type": "string", "pattern": "^\\d+\\.\\d+\\.\\d+$", "description": "Workflow governance version" },
+        "permission_mode": { "type": "string", "enum": ["read", "write"], "description": "Read or write access mode" },
+        "approval_required": { "type": "boolean", "description": "Whether user approval is required" },
+        "side_effects": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": ["creates_elements", "modifies_elements", "deletes_elements", "modifies_parameters", "changes_view", "file_io"]
+          },
+          "description": "Side effects of the workflow"
+        }
+      },
+      "additionalProperties": false,
+      "description": "Governance metadata for workflow tools"
+    },
+    "execution": {
+      "type": "object",
+      "properties": {
+        "modes": {
+          "type": "array",
+          "items": { "type": "string", "enum": ["interactive", "headless"] },
+          "default": ["headless"],
+          "description": "Supported execution modes. interactive = tool's native UI runs. headless = structured inputs bypass the UI."
+        },
+        "interactive_hint": {
+          "type": "string",
+          "description": "Describes what the native UI does, helping users and the LLM decide which mode to use."
+        }
+      },
+      "additionalProperties": false
+    },
+    "metadata": {
+      "type": "object",
+      "description": "Arbitrary metadata (LLM review results, etc.)"
     }
   },
   "required": ["name", "adapter", "description", "parameters"],

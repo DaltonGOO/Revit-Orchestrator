@@ -101,7 +101,7 @@ class OpenAIProvider(BaseLLMProvider):
             tool = {
                 "type": "function",
                 "function": {
-                    "name": defn["name"],
+                    "name": defn["name"].replace(".", "_"),
                     "description": defn["description"],
                     "parameters": defn["parameters"],
                 },

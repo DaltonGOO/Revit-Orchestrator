@@ -1,0 +1,160 @@
+{
+  "name": "recorded.revit.create_element_test_cap2",
+  "description": "Recorded workflow with 5 steps",
+  "adapter": "workflow",
+  "parameters": {
+    "type": "object",
+    "properties": {
+      "level_name": {
+        "type": "string",
+        "description": "Workflow parameter: level_name",
+        "default": "L2"
+      },
+      "type_name": {
+        "type": "string",
+        "description": "Workflow parameter: type_name",
+        "default": "Tees"
+      },
+      "diameter": {
+        "type": "number",
+        "description": "Workflow parameter: diameter",
+        "default": 0.3333333333333333
+      }
+    },
+    "required": []
+  },
+  "workflow": {
+    "steps": [
+      {
+        "id": "step1",
+        "tool": "revit.create_element",
+        "args": {
+          "start_point": [
+            94.88760329108413,
+            27.140450643821666,
+            16.36485635968497
+          ],
+          "end_point": [
+            94.88760329108412,
+            17.640450643821666,
+            16.36485635968497
+          ],
+          "level_name": "L2",
+          "type_name": "Tees",
+          "diameter": 0.3333333333333333,
+          "category": "Ducts"
+        },
+        "bindings": {
+          "level_name": "$input.level_name",
+          "type_name": "$input.type_name",
+          "diameter": "$input.diameter"
+        }
+      },
+      {
+        "id": "step2",
+        "tool": "revit.create_element",
+        "args": {
+          "start_point": [
+            95.36143531296261,
+            17.615618159801794,
+            16.364856359684964
+          ],
+          "end_point": [
+            104.87389863862985,
+            17.117091081392196,
+            16.36485635968497
+          ],
+          "level_name": "L2",
+          "type_name": "Tees",
+          "diameter": 0.3333333333333333,
+          "category": "Ducts"
+        },
+        "bindings": {
+          "level_name": "$input.level_name",
+          "type_name": "$input.type_name",
+          "diameter": "$input.diameter"
+        }
+      },
+      {
+        "id": "step3",
+        "tool": "revit.create_element",
+        "args": {
+          "start_point": [
+            104.91944913106023,
+            17.123087917486963,
+            16.364856359684964
+          ],
+          "end_point": [
+            107.84823322275128,
+            17.50866965805237,
+            16.36485635968497
+          ],
+          "level_name": "L2",
+          "type_name": "Tees",
+          "diameter": 0.3333333333333333,
+          "category": "Ducts"
+        },
+        "bindings": {
+          "level_name": "$input.level_name",
+          "type_name": "$input.type_name",
+          "diameter": "$input.diameter"
+        }
+      },
+      {
+        "id": "step4",
+        "tool": "revit.create_element",
+        "args": {
+          "start_point": [
+            107.8482332227513,
+            17.94715788954872,
+            16.364856359684964
+          ],
+          "end_point": [
+            107.84823322275128,
+            19.508669658052366,
+            16.36485635968497
+          ],
+          "level_name": "L2",
+          "type_name": "Tees",
+          "diameter": 0.3333333333333333,
+          "category": "Ducts"
+        },
+        "bindings": {
+          "level_name": "$input.level_name",
+          "type_name": "$input.type_name",
+          "diameter": "$input.diameter"
+        }
+      },
+      {
+        "id": "step5",
+        "tool": "revit.create_element",
+        "args": {
+          "start_point": [
+            108.34823322275126,
+            19.508669658052394,
+            16.364856359684964
+          ],
+          "end_point": [
+            113.34823322275128,
+            19.508669658052348,
+            16.36485635968497
+          ],
+          "level_name": "L2",
+          "type_name": "Tees",
+          "diameter": 0.3333333333333333,
+          "category": "Ducts"
+        },
+        "bindings": {
+          "level_name": "$input.level_name",
+          "type_name": "$input.type_name",
+          "diameter": "$input.diameter"
+        }
+      }
+    ]
+  },
+  "governance": {
+    "author": "Dalton",
+    "version": "1.0.0",
+    "permission_mode": "write"
+  }
+}

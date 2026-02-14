@@ -1,0 +1,91 @@
+{
+  "name": "revit.create_element",
+  "adapter": "revit",
+  "description": "Creates a generic element in the active Revit document between two points. Supports MEP elements (ducts, pipes, conduits, cable trays) and other curve-based families by specifying type_name.",
+  "version": "1.0.0",
+  "tags": ["geometry", "mep", "elements"],
+  "permissions": {
+    "mode": "write",
+    "categories": ["Ducts", "Pipes", "Conduits", "CableTrays"],
+    "approval_required": false
+  },
+  "side_effects": ["creates_elements"],
+  "preconditions": [
+    { "check": "document_open" }
+  ],
+  "parameters": {
+    "type": "object",
+    "properties": {
+      "start_point": {
+        "type": "array",
+        "items": { "type": "number" },
+        "minItems": 3,
+        "maxItems": 3,
+        "description": "Start point [X, Y, Z] in feet"
+      },
+      "end_point": {
+        "type": "array",
+        "items": { "type": "number" },
+        "minItems": 3,
+        "maxItems": 3,
+        "description": "End point [X, Y, Z] in feet"
+      },
+      "type_name": {
+        "type": "string",
+        "description": "Name of the element type to use (e.g. duct type, pipe type). If omitted, uses the first available MEP curve type."
+      },
+      "level_name": {
+        "type": "string",
+        "description": "Name of the level to place the element on. If omitted, uses the lowest level."
+      },
+      "diameter": {
+        "type": "number",
+        "minimum": 0,
+        "description": "Diameter in feet (for round ducts/pipes)"
+      },
+      "height": {
+        "type": "number",
+        "minimum": 0,
+        "description": "Height in feet (for rectangular ducts)"
+      },
+      "width": {
+        "type": "number",
+        "minimum": 0,
+        "description": "Width in feet (for rectangular ducts)"
+      },
+      "category": {
+        "type": "string",
+        "description": "Hint for the element category (e.g. 'Ducts', 'Pipes', 'Conduits', 'CableTrays')"
+      }
+    },
+    "required": ["start_point", "end_point"]
+  },
+  "returns": {
+    "type": "object",
+    "properties": {
+      "element_id": { "type": "integer" },
+      "message": { "type": "string" }
+    }
+  },
+  "examples": [
+    {
+      "description": "Create a duct between two points",
+      "args": {
+        "start_point": [0, 0, 10],
+        "end_point": [20, 0, 10],
+        "type_name": "Default",
+        "level_name": "Level 1"
+      }
+    },
+    {
+      "description": "Create a pipe with a specific diameter",
+      "args": {
+        "start_point": [0, 0, 5],
+        "end_point": [15, 0, 5],
+        "type_name": "Default",
+        "level_name": "Level 1",
+        "diameter": 0.5
+      }
+    }
+  ]
+}
