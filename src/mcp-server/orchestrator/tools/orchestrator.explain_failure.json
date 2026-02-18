@@ -1,6 +1,7 @@
 {
   "name": "orchestrator.explain_failure",
   "adapter": "workflow",
+  "visibility": "llm-only",
   "description": "Analyse a past failure by searching for similar failures and how they were resolved. Helps diagnose recurring issues and find known fixes.",
   "version": "1.0.0",
   "tags": ["history", "debugging", "ml"],

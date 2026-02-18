@@ -3,7 +3,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="Revit Orchestrator Settings"
         Width="520"
-        Height="560"
+        Height="680"
         WindowStartupLocation="CenterOwner"
         ResizeMode="NoResize"
         ShowInTaskbar="False">
@@ -46,7 +46,7 @@
                 <TextBlock Text="LLM Configuration"
                            FontWeight="Bold" FontSize="14"
                            Foreground="#1a73e8" Margin="0,0,0,8" />
-                <Grid Margin="0,0,0,16">
+                <Grid Margin="0,0,0,8">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="140" />
                         <ColumnDefinition Width="*" />
@@ -54,13 +54,37 @@
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto" />
                         <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" x:Name="BaseUrlRow" />
+                        <RowDefinition Height="Auto" />
                     </Grid.RowDefinitions>
-                    <TextBlock Grid.Row="0" Grid.Column="0" Text="Provider:" Foreground="#666" Margin="0,2" />
-                    <TextBlock Grid.Row="0" Grid.Column="1" x:Name="LlmProviderText" Text="--" Margin="0,2" />
-                    <TextBlock Grid.Row="1" Grid.Column="0" Text="Model:" Foreground="#666" Margin="0,2" />
-                    <TextBlock Grid.Row="1" Grid.Column="1" x:Name="LlmModelText" Text="--" Margin="0,2"
+                    <TextBlock Grid.Row="0" Grid.Column="0" Text="Provider:" Foreground="#666"
+                               VerticalAlignment="Center" Margin="0,4" />
+                    <ComboBox Grid.Row="0" Grid.Column="1" x:Name="ProviderComboBox"
+                              Margin="0,4" SelectionChanged="ProviderComboBox_SelectionChanged">
+                        <ComboBoxItem Tag="claude" Content="Claude (Anthropic)" />
+                        <ComboBoxItem Tag="openai" Content="OpenAI" />
+                        <ComboBoxItem Tag="openai-compatible" Content="OpenAI-Compatible (Ollama, LM Studio, etc.)" />
+                    </ComboBox>
+                    <TextBlock Grid.Row="1" Grid.Column="0" Text="Model:" Foreground="#666"
+                               VerticalAlignment="Center" Margin="0,4" />
+                    <TextBox Grid.Row="1" Grid.Column="1" x:Name="ModelTextBox" Margin="0,4" />
+                    <TextBlock Grid.Row="2" Grid.Column="0" Text="API Key:" Foreground="#666"
+                               VerticalAlignment="Center" Margin="0,4" />
+                    <PasswordBox Grid.Row="2" Grid.Column="1" x:Name="ApiKeyBox" Margin="0,4" />
+                    <TextBlock Grid.Row="3" Grid.Column="0" Text="Base URL:" Foreground="#666"
+                               VerticalAlignment="Center" Margin="0,4"
+                               x:Name="BaseUrlLabel" Visibility="Collapsed" />
+                    <TextBox Grid.Row="3" Grid.Column="1" x:Name="BaseUrlTextBox" Margin="0,4"
+                             Visibility="Collapsed" />
+                    <TextBlock Grid.Row="4" Grid.Column="0" Grid.ColumnSpan="2"
+                               x:Name="LlmStatusText" Margin="0,4" FontSize="12"
                                TextWrapping="Wrap" />
                 </Grid>
+                <Button Content="Apply LLM Settings" Padding="12,6" Margin="0,0,0,16"
+                        HorizontalAlignment="Left"
+                        x:Name="ApplyLlmButton"
+                        Click="ApplyLlmButton_Click" />
 
                 <Separator Margin="0,0,0,12" />
 

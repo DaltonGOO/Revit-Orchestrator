@@ -68,6 +68,12 @@ public sealed class ExecutionEvent : INotifyPropertyChanged
             OnPropertyChanged(nameof(ResultSummary));
             OnPropertyChanged(nameof(ModelChangesSummary));
             OnPropertyChanged(nameof(HasModelChanges));
+            OnPropertyChanged(nameof(HasDynamoWarnings));
+            OnPropertyChanged(nameof(DynamoWarningsSummary));
+            OnPropertyChanged(nameof(GraphPath));
+            OnPropertyChanged(nameof(StatusIcon));
+            OnPropertyChanged(nameof(StatusColor));
+            OnPropertyChanged(nameof(ResultColor));
         }
     }
 
@@ -80,6 +86,78 @@ public sealed class ExecutionEvent : INotifyPropertyChanged
     /// Error message (for failed events).
     /// </summary>
     public string? ErrorMessage { get; set; }
+
+    /// <summary>
+    /// Whether this event has an error message.
+    /// </summary>
+    public bool HasError => !string.IsNullOrEmpty(ErrorMessage);
+
+    /// <summary>
+    /// Short summary of the error (first line only) for inline display.
+    /// The full error is shown in the expanded details section.
+    /// </summary>
+    public string? ErrorSummary
+    {
+        get
+        {
+            if (string.IsNullOrEmpty(ErrorMessage)) return null;
+            var firstLine = ErrorMessage.Split('\n')[0].Trim();
+            return firstLine.Length > 120 ? firstLine[..117] + "..." : firstLine;
+        }
+    }
+
+    /// <summary>
+    /// The primary error text (everything before the Diagnostics separator).
+    /// </summary>
+    public string? ErrorPrimary
+    {
+        get
+        {
+            if (string.IsNullOrEmpty(ErrorMessage)) return null;
+            var idx = ErrorMessage.IndexOf("\n\nDiagnostics:", StringComparison.Ordinal);
+            return idx >= 0 ? ErrorMessage[..idx].Trim() : ErrorMessage;
+        }
+    }
+
+    /// <summary>
+    /// Diagnostic details (everything after the Diagnostics separator), or null.
+    /// </summary>
+    public string? DiagnosticsText
+    {
+        get
+        {
+            if (string.IsNullOrEmpty(ErrorMessage)) return null;
+            var idx = ErrorMessage.IndexOf("\n\nDiagnostics:", StringComparison.Ordinal);
+            if (idx < 0) return null;
+            return ErrorMessage[(idx + 2)..].Trim(); // skip the \n\n
+        }
+    }
+
+    /// <summary>
+    /// Whether this event has diagnostic details.
+    /// </summary>
+    public bool HasDiagnostics => DiagnosticsText != null;
+
+    /// <summary>
+    /// Full run details as copyable text (tool name, args, error/result, duration).
+    /// </summary>
+    public string RunDetailsText
+    {
+        get
+        {
+            var sb = new System.Text.StringBuilder();
+            sb.AppendLine($"Tool: {ToolName}");
+            sb.AppendLine($"Time: {TimestampText}");
+            sb.AppendLine($"Status: {EventType}");
+            if (DurationMs > 0) sb.AppendLine($"Duration: {DurationMs}ms");
+            sb.AppendLine($"Input Args: {ArgsJson}");
+            if (!string.IsNullOrEmpty(ErrorMessage))
+                sb.AppendLine($"Error: {ErrorMessage}");
+            if (!string.IsNullOrEmpty(ResultJson))
+                sb.AppendLine($"Result: {ResultJson}");
+            return sb.ToString().TrimEnd();
+        }
+    }
 
     /// <summary>
     /// Origin of the execution: "chat", "manual", or "test".
@@ -142,16 +220,36 @@ public sealed class ExecutionEvent : INotifyPropertyChanged
                 using var doc = JsonDocument.Parse(ResultJson);
                 var root = doc.RootElement;
 
+                string summary = "Completed";
+
                 // Try to get message first
                 if (root.TryGetProperty("data", out var data))
                 {
                     if (data.TryGetProperty("message", out var msg))
-                        return msg.GetString() ?? "";
+                        summary = msg.GetString() ?? "Completed";
                 }
-                if (root.TryGetProperty("message", out var message))
-                    return message.GetString() ?? "";
+                else if (root.TryGetProperty("message", out var message))
+                {
+                    summary = message.GetString() ?? "Completed";
+                }
 
-                return "Completed";
+                // Append warning count for Dynamo results
+                if (HasDynamoWarnings)
+                {
+                    int warnCount = 0, errCount = 0;
+                    if (root.TryGetProperty("data", out var d))
+                    {
+                        if (d.TryGetProperty("warnings", out var w)) warnCount = w.GetArrayLength();
+                        if (d.TryGetProperty("errors", out var e)) errCount = e.GetArrayLength();
+                    }
+                    var parts = new List<string>();
+                    if (errCount > 0) parts.Add($"{errCount} error(s)");
+                    if (warnCount > 0) parts.Add($"{warnCount} warning(s)");
+                    if (parts.Count > 0)
+                        summary += $" — {string.Join(", ", parts)}";
+                }
+
+                return summary;
             }
             catch
             {
@@ -252,12 +350,102 @@ public sealed class ExecutionEvent : INotifyPropertyChanged
     }
 
     /// <summary>
+    /// Whether this is a Dynamo tool execution.
+    /// </summary>
+    public bool IsDynamoTool => ToolName.StartsWith("dynamo.", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// The graph_path from a Dynamo execution result, or null.
+    /// </summary>
+    public string? GraphPath
+    {
+        get
+        {
+            if (!IsDynamoTool) return null;
+            // Try result data first
+            if (!string.IsNullOrEmpty(ResultJson))
+            {
+                try
+                {
+                    using var doc = JsonDocument.Parse(ResultJson);
+                    if (doc.RootElement.TryGetProperty("data", out var data)
+                        && data.TryGetProperty("graph_path", out var gp))
+                        return gp.GetString();
+                }
+                catch { }
+            }
+            // Fallback to args
+            if (!string.IsNullOrEmpty(ArgsJson))
+            {
+                try
+                {
+                    using var doc = JsonDocument.Parse(ArgsJson);
+                    if (doc.RootElement.TryGetProperty("graph_path", out var gp))
+                        return gp.GetString();
+                }
+                catch { }
+            }
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// Whether this Dynamo execution had warnings or errors.
+    /// </summary>
+    public bool HasDynamoWarnings
+    {
+        get
+        {
+            if (string.IsNullOrEmpty(ResultJson)) return false;
+            try
+            {
+                using var doc = JsonDocument.Parse(ResultJson);
+                if (!doc.RootElement.TryGetProperty("data", out var data)) return false;
+                if (data.TryGetProperty("warnings", out var w) && w.GetArrayLength() > 0) return true;
+                if (data.TryGetProperty("errors", out var e) && e.GetArrayLength() > 0) return true;
+                return false;
+            }
+            catch { return false; }
+        }
+    }
+
+    /// <summary>
+    /// Human-readable summary of Dynamo warnings/errors.
+    /// </summary>
+    public string DynamoWarningsSummary
+    {
+        get
+        {
+            if (string.IsNullOrEmpty(ResultJson)) return "";
+            try
+            {
+                using var doc = JsonDocument.Parse(ResultJson);
+                if (!doc.RootElement.TryGetProperty("data", out var data)) return "";
+                var lines = new List<string>();
+
+                if (data.TryGetProperty("errors", out var errors))
+                {
+                    foreach (var item in errors.EnumerateArray())
+                        lines.Add($"\u2717 {item.GetString()}");
+                }
+                if (data.TryGetProperty("warnings", out var warnings))
+                {
+                    foreach (var item in warnings.EnumerateArray())
+                        lines.Add($"\u26A0 {item.GetString()}");
+                }
+                return string.Join("\n", lines);
+            }
+            catch { return ""; }
+        }
+    }
+
+    /// <summary>
     /// Icon to display based on event type.
     /// </summary>
     public string StatusIcon => EventType switch
     {
         "started" => "\u25B6", // Play symbol
-        "completed" => "\u2713", // Check mark
+        "completed" => HasDynamoWarnings ? "\u26A0" : "\u2713", // Warning or Check mark
         "failed" => "\u2717", // X mark
         _ => "\u25CF" // Bullet
     };
@@ -268,10 +456,16 @@ public sealed class ExecutionEvent : INotifyPropertyChanged
     public string StatusColor => EventType switch
     {
         "started" => "#FFA500", // Orange
-        "completed" => "#4CAF50", // Green
+        "completed" => HasDynamoWarnings ? "#FF8F00" : "#4CAF50", // Amber or Green
         "failed" => "#F44336", // Red
         _ => "#9E9E9E" // Gray
     };
+
+    /// <summary>
+    /// Color for the inline result summary text.
+    /// Amber when completed with Dynamo warnings, green otherwise.
+    /// </summary>
+    public string ResultColor => (EventType == "completed" && HasDynamoWarnings) ? "#FF8F00" : "#4CAF50";
 
     /// <summary>
     /// Formatted duration string.

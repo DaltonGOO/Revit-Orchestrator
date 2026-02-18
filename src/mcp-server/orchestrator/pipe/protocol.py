@@ -483,16 +483,29 @@ def make_tool_run_response(
     success: bool,
     data: dict[str, Any] | None = None,
     error: str = "",
+    error_code: str = "",
+    stage: str = "",
 ) -> dict[str, Any]:
-    """Create a tool_run_response (Python → C#)."""
-    return make_message(
-        "tool_run_response",
-        {
-            "success": success,
-            "data": data or {},
-            "error": error,
-        },
-    )
+    """Create a tool_run_response (Python → C#).
+
+    Args:
+        success: Whether the tool execution succeeded.
+        data: Result data from the tool.
+        error: Human-readable error message (empty on success).
+        error_code: Machine-readable error code (e.g. SCHEMA_VALIDATION_FAILED).
+        stage: Execution stage where failure occurred
+               (preflight_validation, dispatch, adapter_execution, postprocess).
+    """
+    payload: dict[str, Any] = {
+        "success": success,
+        "data": data or {},
+        "error": error,
+    }
+    if error_code:
+        payload["error_code"] = error_code
+    if stage:
+        payload["stage"] = stage
+    return make_message("tool_run_response", payload)
 
 
 def make_tool_load_request(tool_name: str) -> dict[str, Any]:
@@ -651,3 +664,249 @@ def make_settings_request() -> dict[str, Any]:
 def make_settings_response(settings: dict[str, Any]) -> dict[str, Any]:
     """Create a settings_response (Python → C#)."""
     return make_message("settings_response", settings)
+
+
+# ------------------------------------------------------------------
+# Settings update (C# → Python → C#)
+# ------------------------------------------------------------------
+
+def make_settings_update_request(settings: dict[str, Any]) -> dict[str, Any]:
+    """Create a settings_update_request message (C# → Python).
+
+    Carries {llm_provider, api_key, model, base_url}.
+    """
+    return make_message("settings_update_request", settings)
+
+
+def make_settings_update_response(
+    success: bool,
+    error: str = "",
+) -> dict[str, Any]:
+    """Create a settings_update_response message (Python → C#)."""
+    return make_message(
+        "settings_update_response",
+        {
+            "success": success,
+            "error": error,
+        },
+    )
+
+
+# ------------------------------------------------------------------
+# MCP Connection management (C# ↔ Python)
+# ------------------------------------------------------------------
+
+def make_connection_list_request() -> dict[str, Any]:
+    """Create a connection_list_request message (C# → Python)."""
+    return make_message("connection_list_request")
+
+
+def make_connection_list_response(
+    connections: list[dict[str, Any]],
+) -> dict[str, Any]:
+    """Create a connection_list_response (Python → C#)."""
+    return make_message(
+        "connection_list_response",
+        {"connections": connections},
+    )
+
+
+def make_connection_add_request(
+    connection: dict[str, Any],
+) -> dict[str, Any]:
+    """Create a connection_add_request (C# → Python)."""
+    return make_message("connection_add_request", connection)
+
+
+def make_connection_add_response(
+    success: bool,
+    connection: dict[str, Any] | None = None,
+    error: str = "",
+) -> dict[str, Any]:
+    """Create a connection_add_response (Python → C#)."""
+    return make_message(
+        "connection_add_response",
+        {
+            "success": success,
+            "connection": connection or {},
+            "error": error,
+        },
+    )
+
+
+def make_connection_update_request(
+    connection_id: str,
+    updates: dict[str, Any],
+) -> dict[str, Any]:
+    """Create a connection_update_request (C# → Python)."""
+    payload = dict(updates)
+    payload["connection_id"] = connection_id
+    return make_message("connection_update_request", payload)
+
+
+def make_connection_update_response(
+    success: bool,
+    connection: dict[str, Any] | None = None,
+    error: str = "",
+) -> dict[str, Any]:
+    """Create a connection_update_response (Python → C#)."""
+    return make_message(
+        "connection_update_response",
+        {
+            "success": success,
+            "connection": connection or {},
+            "error": error,
+        },
+    )
+
+
+def make_connection_delete_request(connection_id: str) -> dict[str, Any]:
+    """Create a connection_delete_request (C# → Python)."""
+    return make_message(
+        "connection_delete_request",
+        {"connection_id": connection_id},
+    )
+
+
+def make_connection_delete_response(
+    success: bool,
+    error: str = "",
+) -> dict[str, Any]:
+    """Create a connection_delete_response (Python → C#)."""
+    return make_message(
+        "connection_delete_response",
+        {
+            "success": success,
+            "error": error,
+        },
+    )
+
+
+def make_connection_test_request(connection_id: str) -> dict[str, Any]:
+    """Create a connection_test_request (C# → Python)."""
+    return make_message(
+        "connection_test_request",
+        {"connection_id": connection_id},
+    )
+
+
+def make_connection_test_response(
+    success: bool,
+    tools: list[dict[str, Any]] | None = None,
+    server_name: str = "",
+    server_version: str = "",
+    error: str = "",
+) -> dict[str, Any]:
+    """Create a connection_test_response (Python → C#)."""
+    return make_message(
+        "connection_test_response",
+        {
+            "success": success,
+            "discovered_tools": tools or [],
+            "server_name": server_name,
+            "server_version": server_version,
+            "error": error,
+        },
+    )
+
+
+def make_connection_toggle_request(
+    connection_id: str,
+    enabled: bool,
+) -> dict[str, Any]:
+    """Create a connection_toggle_request (C# → Python)."""
+    return make_message(
+        "connection_toggle_request",
+        {
+            "connection_id": connection_id,
+            "enabled": enabled,
+        },
+    )
+
+
+def make_connection_toggle_response(
+    success: bool,
+    connection: dict[str, Any] | None = None,
+    error: str = "",
+) -> dict[str, Any]:
+    """Create a connection_toggle_response (Python → C#)."""
+    return make_message(
+        "connection_toggle_response",
+        {
+            "success": success,
+            "connection": connection or {},
+            "error": error,
+        },
+    )
+
+
+def make_connection_status_event(
+    connection_id: str,
+    status: str,
+    error: str | None = None,
+) -> dict[str, Any]:
+    """Create a connection_status_event (Python → C# push)."""
+    return make_message(
+        "connection_status_event",
+        {
+            "connection_id": connection_id,
+            "status": status,
+            "error": error,
+        },
+    )
+
+
+# ------------------------------------------------------------------
+# Reconciliation mapping (Python → C# → Python)
+# ------------------------------------------------------------------
+
+def make_mapping_request(
+    mapping_type: str,
+    recorded_value: str,
+    available_options: list[dict[str, Any]],
+    best_match: dict[str, Any] | None = None,
+    call_id: str | None = None,
+) -> dict[str, Any]:
+    """Create a mapping_request message (Python → C#).
+
+    Asks the user to reconcile a type mismatch during workflow replay.
+
+    Args:
+        mapping_type: One of 'system_type', 'family_type', 'host_element'.
+        recorded_value: The name/identifier from the recorded workflow.
+        available_options: List of available options in the target model.
+        best_match: Pre-selected best match, if one was found.
+        call_id: Optional call ID for correlation.
+    """
+    return make_message(
+        "mapping_request",
+        {
+            "mapping_type": mapping_type,
+            "recorded_value": recorded_value,
+            "available_options": available_options,
+            "best_match": best_match,
+            "call_id": call_id or "",
+        },
+    )
+
+
+def make_mapping_response(
+    action: str,
+    selected_option: dict[str, Any] | None = None,
+    call_id: str = "",
+) -> dict[str, Any]:
+    """Create a mapping_response message (C# → Python).
+
+    Args:
+        action: One of 'map' (use selected), 'create' (create new), 'cancel'.
+        selected_option: The option the user selected (for 'map' action).
+        call_id: Correlation ID from the original request.
+    """
+    return make_message(
+        "mapping_response",
+        {
+            "action": action,
+            "selected_option": selected_option,
+            "call_id": call_id,
+        },
+    )

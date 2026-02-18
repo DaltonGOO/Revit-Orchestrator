@@ -42,6 +42,12 @@ public sealed class WorkflowEditorViewModel : INotifyPropertyChanged
     private bool _sideEffect_View;
     private bool _sideEffect_FileIo;
 
+    // Derived contract fields
+    private string _derivedSideEffectsText = "";
+    private string _derivedPermissionMode = "";
+    private string _derivedPreconditionsText = "";
+    private bool _hasDerivedContract;
+
     public WorkflowEditorViewModel()
     {
         AddStepCommand = new RelayCommand(OnAddStep);
@@ -106,6 +112,16 @@ public sealed class WorkflowEditorViewModel : INotifyPropertyChanged
             {
                 LlmReviewFlags.Add(flag);
             }
+        }
+
+        // Populate derived contract fields
+        if (definition.DerivedSideEffects.Count > 0 || definition.DerivedPermissionMode != null)
+        {
+            HasDerivedContract = true;
+            DerivedSideEffectsText = string.Join(", ", definition.DerivedSideEffects);
+            DerivedPermissionMode = definition.DerivedPermissionMode ?? "read";
+            DerivedPreconditionsText = definition.DerivedPreconditions.Count > 0
+                ? string.Join(", ", definition.DerivedPreconditions) : "";
         }
 
         RefreshPromotedParameters();
@@ -208,6 +224,12 @@ public sealed class WorkflowEditorViewModel : INotifyPropertyChanged
     public bool SideEffect_Parameters { get => _sideEffect_Parameters; set { _sideEffect_Parameters = value; OnPropertyChanged(); } }
     public bool SideEffect_View { get => _sideEffect_View; set { _sideEffect_View = value; OnPropertyChanged(); } }
     public bool SideEffect_FileIo { get => _sideEffect_FileIo; set { _sideEffect_FileIo = value; OnPropertyChanged(); } }
+
+    // Derived contract properties (read-only in UI)
+    public string DerivedSideEffectsText { get => _derivedSideEffectsText; set { _derivedSideEffectsText = value; OnPropertyChanged(); } }
+    public string DerivedPermissionMode { get => _derivedPermissionMode; set { _derivedPermissionMode = value; OnPropertyChanged(); } }
+    public string DerivedPreconditionsText { get => _derivedPreconditionsText; set { _derivedPreconditionsText = value; OnPropertyChanged(); } }
+    public bool HasDerivedContract { get => _hasDerivedContract; set { _hasDerivedContract = value; OnPropertyChanged(); } }
 
     public ICommand AddStepCommand { get; }
     public ICommand RemoveStepCommand { get; }
@@ -550,6 +572,9 @@ public sealed class WorkflowStepViewModel : INotifyPropertyChanged
     private string _onFailure = "stop";
     private int _maxRetries;
     private int? _timeoutMs;
+    private bool _isWorkflowTool;
+    private string _sourceType = "tool";
+    private string _sourceAdapter = "";
 
     /// <summary>
     /// Callback invoked when a step arg's IsPromoted changes.
@@ -566,7 +591,7 @@ public sealed class WorkflowStepViewModel : INotifyPropertyChanged
     public string ToolName
     {
         get => _toolName;
-        set { _toolName = value; OnPropertyChanged(); }
+        set { _toolName = value; OnPropertyChanged(); OnPropertyChanged(nameof(BadgeText)); }
     }
 
     /// <summary>
@@ -613,6 +638,43 @@ public sealed class WorkflowStepViewModel : INotifyPropertyChanged
         get => _timeoutMs;
         set { _timeoutMs = value; OnPropertyChanged(); OnPropertyChanged(nameof(TimeoutMsText)); }
     }
+
+    /// <summary>Whether this step references another workflow tool (for visual indicator).</summary>
+    public bool IsWorkflowTool
+    {
+        get => _isWorkflowTool;
+        set { _isWorkflowTool = value; OnPropertyChanged(); }
+    }
+
+    public string SourceType
+    {
+        get => _sourceType;
+        set { _sourceType = value; OnPropertyChanged(); OnPropertyChanged(nameof(BadgeText)); }
+    }
+
+    public string SourceAdapter
+    {
+        get => _sourceAdapter;
+        set { _sourceAdapter = value; OnPropertyChanged(); OnPropertyChanged(nameof(BadgeText)); }
+    }
+
+    /// <summary>
+    /// Single badge text: "recorded", "composed", "dynamo", "pyrevit", or "revit".
+    /// </summary>
+    public string BadgeText
+    {
+        get
+        {
+            if (!string.IsNullOrEmpty(SourceAdapter) && SourceAdapter != "workflow")
+                return SourceAdapter;
+            if (SourceType == "recording" || ToolName.StartsWith("recorded.") || ToolName.StartsWith("captured."))
+                return "recorded";
+            return "composed";
+        }
+    }
+
+    /// <summary>Raw snapshot preserved for round-trip.</summary>
+    public Dictionary<string, object?>? Snapshot { get; set; }
 
     public string TimeoutMsText
     {
@@ -697,6 +759,9 @@ public sealed class WorkflowStepViewModel : INotifyPropertyChanged
         OnFailure = step.OnFailure;
         MaxRetries = step.MaxRetries;
         TimeoutMs = step.TimeoutMs;
+        SourceType = step.SourceType;
+        SourceAdapter = step.SourceAdapter;
+        Snapshot = step.Snapshot;
     }
 
     /// <summary>
@@ -750,6 +815,9 @@ public sealed class WorkflowStepViewModel : INotifyPropertyChanged
             OnFailure = OnFailure,
             MaxRetries = MaxRetries,
             TimeoutMs = TimeoutMs,
+            Snapshot = Snapshot,
+            SourceType = SourceType,
+            SourceAdapter = SourceAdapter,
         };
     }
 

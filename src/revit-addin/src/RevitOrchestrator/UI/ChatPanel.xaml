@@ -17,6 +17,44 @@
             <Setter Property="Margin" Value="4,2" />
             <Setter Property="MaxWidth" Value="400" />
         </Style>
+
+        <!-- Filter chip radio button style -->
+        <Style x:Key="FilterChipRadio" TargetType="RadioButton">
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="RadioButton">
+                        <Border x:Name="ChipBorder"
+                                CornerRadius="10"
+                                Padding="10,4"
+                                Background="#e0e0e0"
+                                BorderThickness="0"
+                                Cursor="Hand">
+                            <ContentPresenter HorizontalAlignment="Center"
+                                              VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter TargetName="ChipBorder" Property="Background" Value="#1a73e8" />
+                                <Setter Property="Foreground" Value="White" />
+                            </Trigger>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="ChipBorder" Property="Background" Value="#bbdefb" />
+                            </Trigger>
+                            <MultiTrigger>
+                                <MultiTrigger.Conditions>
+                                    <Condition Property="IsChecked" Value="True" />
+                                    <Condition Property="IsMouseOver" Value="True" />
+                                </MultiTrigger.Conditions>
+                                <Setter TargetName="ChipBorder" Property="Background" Value="#1565C0" />
+                                <Setter Property="Foreground" Value="White" />
+                            </MultiTrigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+            <Setter Property="FontSize" Value="11" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+        </Style>
     </UserControl.Resources>
 
     <Grid>
@@ -149,6 +187,7 @@
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto" />
                         <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
                         <RowDefinition Height="*" />
                         <RowDefinition Height="Auto" />
                     </Grid.RowDefinitions>
@@ -177,20 +216,13 @@
                                     Command="{Binding RefreshCommand}"
                                     FontSize="11" />
                             <Button Grid.Column="2"
-                                    Content="Contract"
-                                    Padding="10,4"
-                                    Margin="0,0,3,0"
-                                    Command="{Binding EditContractCommand}"
-                                    FontSize="11"
-                                    ToolTip="Edit tool contract (all tools)" />
-                            <Button Grid.Column="3"
-                                    Content="Steps"
+                                    Content="Edit"
                                     Padding="10,4"
                                     Margin="0,0,6,0"
                                     Command="{Binding EditToolCommand}"
                                     FontSize="11"
-                                    ToolTip="Edit workflow steps (workflow tools only)" />
-                            <Button Grid.Column="4"
+                                    ToolTip="Edit tool inputs and metadata" />
+                            <Button Grid.Column="3"
                                     Content="Delete"
                                     Padding="10,4"
                                     Margin="0,0,6,0"
@@ -200,7 +232,7 @@
                                     FontWeight="SemiBold"
                                     FontSize="11"
                                     BorderThickness="0" />
-                            <Button Grid.Column="5"
+                            <Button Grid.Column="4"
                                     Content="Run"
                                     Padding="10,4"
                                     Margin="0,0,6,0"
@@ -210,6 +242,30 @@
                                     FontWeight="SemiBold"
                                     FontSize="11"
                                     BorderThickness="0" />
+                            <!-- Compose toggle button -->
+                            <ToggleButton Grid.Column="5"
+                                          Content="Compose"
+                                          IsChecked="{Binding IsComposeMode}"
+                                          Padding="10,4"
+                                          Margin="0,0,6,0"
+                                          FontSize="11"
+                                          FontWeight="SemiBold"
+                                          Cursor="Hand"
+                                          ToolTip="Select multiple tools to compose into a workflow">
+                                <ToggleButton.Style>
+                                    <Style TargetType="ToggleButton">
+                                        <Setter Property="Background" Value="#e0e0e0" />
+                                        <Setter Property="Foreground" Value="#333" />
+                                        <Setter Property="BorderThickness" Value="0" />
+                                        <Style.Triggers>
+                                            <Trigger Property="IsChecked" Value="True">
+                                                <Setter Property="Background" Value="#7B1FA2" />
+                                                <Setter Property="Foreground" Value="White" />
+                                            </Trigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </ToggleButton.Style>
+                            </ToggleButton>
                             <Button Grid.Column="6"
                                     Content="+ Add Tool"
                                     Padding="10,4"
@@ -269,8 +325,21 @@
                         </Grid>
                     </Border>
 
+                    <!-- Category filter -->
+                    <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="8,4">
+                        <RadioButton Content="All" GroupName="ToolCategory"
+                                     IsChecked="{Binding IsAllCategory}" Margin="0,0,6,0"
+                                     Style="{StaticResource FilterChipRadio}" />
+                        <RadioButton Content="Atomic Tools" GroupName="ToolCategory"
+                                     IsChecked="{Binding IsAtomicCategory}" Margin="0,0,6,0"
+                                     Style="{StaticResource FilterChipRadio}" />
+                        <RadioButton Content="Workflows" GroupName="ToolCategory"
+                                     IsChecked="{Binding IsWorkflowCategory}"
+                                     Style="{StaticResource FilterChipRadio}" />
+                    </StackPanel>
+
                     <!-- Tool list -->
-                    <Grid Grid.Row="2">
+                    <Grid Grid.Row="3">
                         <!-- Empty state -->
                         <TextBlock Text="No tools registered. Click + Add Tool to add one."
                                    HorizontalAlignment="Center"
@@ -304,13 +373,21 @@
                                 <DataTemplate>
                                     <Grid Margin="4,6">
                                         <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto" />
                                             <ColumnDefinition Width="24" />
                                             <ColumnDefinition Width="*" />
                                             <ColumnDefinition Width="Auto" />
                                         </Grid.ColumnDefinitions>
 
+                                        <!-- Compose mode checkbox -->
+                                        <CheckBox Grid.Column="0"
+                                                  IsChecked="{Binding IsSelected}"
+                                                  VerticalAlignment="Center"
+                                                  Margin="0,0,4,0"
+                                                  Visibility="{Binding DataContext.IsComposeMode, RelativeSource={RelativeSource AncestorType=ListView}, Converter={StaticResource BoolToVisibility}}" />
+
                                         <!-- Favorite star toggle -->
-                                        <ToggleButton Grid.Column="0"
+                                        <ToggleButton Grid.Column="1"
                                                       IsChecked="{Binding IsFavorite, Mode=OneWay}"
                                                       Command="{Binding DataContext.ToggleFavoriteCommand, RelativeSource={RelativeSource AncestorType=ListView}}"
                                                       CommandParameter="{Binding}"
@@ -334,7 +411,7 @@
                                             </ToggleButton.Style>
                                         </ToggleButton>
 
-                                        <StackPanel Grid.Column="1">
+                                        <StackPanel Grid.Column="2">
                                             <TextBlock Text="{Binding Name}"
                                                        FontWeight="SemiBold"
                                                        FontSize="12" />
@@ -345,42 +422,102 @@
                                                        MaxWidth="300"
                                                        Margin="0,2,0,0" />
                                         </StackPanel>
-                                        <Border Grid.Column="2"
-                                                CornerRadius="4"
-                                                Padding="6,2"
-                                                VerticalAlignment="Top"
-                                                Margin="8,0,0,0">
-                                            <Border.Style>
-                                                <Style TargetType="Border">
-                                                    <Setter Property="Background" Value="#e0e0e0" />
-                                                    <Style.Triggers>
-                                                        <DataTrigger Binding="{Binding Adapter}" Value="dynamo">
-                                                            <Setter Property="Background" Value="#e3f2fd" />
-                                                        </DataTrigger>
-                                                        <DataTrigger Binding="{Binding Adapter}" Value="pyrevit">
-                                                            <Setter Property="Background" Value="#fff3e0" />
-                                                        </DataTrigger>
-                                                        <DataTrigger Binding="{Binding Adapter}" Value="revit">
-                                                            <Setter Property="Background" Value="#e8f5e9" />
-                                                        </DataTrigger>
-                                                    </Style.Triggers>
-                                                </Style>
-                                            </Border.Style>
-                                            <TextBlock Text="{Binding Adapter}"
-                                                       FontSize="10"
-                                                       FontWeight="SemiBold" />
-                                        </Border>
+
+                                        <!-- Type badge -->
+                                        <StackPanel Grid.Column="3" Orientation="Horizontal"
+                                                    VerticalAlignment="Top"
+                                                    Margin="8,0,0,0">
+                                            <Border CornerRadius="4"
+                                                    Padding="6,2">
+                                                <Border.Style>
+                                                    <Style TargetType="Border">
+                                                        <Setter Property="Background" Value="#e0e0e0" />
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding BadgeText}" Value="dynamo">
+                                                                <Setter Property="Background" Value="#e3f2fd" />
+                                                            </DataTrigger>
+                                                            <DataTrigger Binding="{Binding BadgeText}" Value="pyrevit">
+                                                                <Setter Property="Background" Value="#fff3e0" />
+                                                            </DataTrigger>
+                                                            <DataTrigger Binding="{Binding BadgeText}" Value="revit">
+                                                                <Setter Property="Background" Value="#e8f5e9" />
+                                                            </DataTrigger>
+                                                            <DataTrigger Binding="{Binding BadgeText}" Value="recorded">
+                                                                <Setter Property="Background" Value="#FFEBEE" />
+                                                            </DataTrigger>
+                                                            <DataTrigger Binding="{Binding BadgeText}" Value="composed">
+                                                                <Setter Property="Background" Value="#F3E5F5" />
+                                                            </DataTrigger>
+                                                            <DataTrigger Binding="{Binding BadgeText}" Value="MCP">
+                                                                <Setter Property="Background" Value="#E8EAF6" />
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </Border.Style>
+                                                <TextBlock Text="{Binding BadgeText}"
+                                                           FontSize="10"
+                                                           FontWeight="SemiBold" />
+                                            </Border>
+                                        </StackPanel>
                                     </Grid>
                                 </DataTemplate>
                             </ListView.ItemTemplate>
                         </ListView>
                     </Grid>
 
-                    <!-- Status bar -->
-                    <Border Grid.Row="3" Padding="8,4" BorderThickness="0,1,0,0" BorderBrush="#ddd">
+                    <!-- Status bar (normal mode) -->
+                    <Border Grid.Row="4" Padding="8,4" BorderThickness="0,1,0,0" BorderBrush="#ddd">
+                        <Border.Style>
+                            <Style TargetType="Border">
+                                <Setter Property="Visibility" Value="Visible" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding IsComposeMode}" Value="True">
+                                        <Setter Property="Visibility" Value="Collapsed" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Border.Style>
                         <TextBlock Text="{Binding StatusText}"
                                    FontSize="11"
                                    Foreground="#666" />
+                    </Border>
+
+                    <!-- Compose action bar (compose mode) -->
+                    <Border Grid.Row="4" Padding="8,5" BorderThickness="0,1,0,0" BorderBrush="#CE93D8"
+                            Background="#F3E5F5"
+                            Visibility="{Binding IsComposeMode, Converter={StaticResource BoolToVisibility}}">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+
+                            <TextBlock Grid.Column="0"
+                                       Text="{Binding ComposeStatusText}"
+                                       FontSize="11"
+                                       Foreground="#6A1B9A"
+                                       FontWeight="SemiBold"
+                                       VerticalAlignment="Center" />
+
+                            <Button Grid.Column="1"
+                                    Content="Cancel"
+                                    Padding="10,4"
+                                    Margin="0,0,6,0"
+                                    Command="{Binding ToggleComposeModeCommand}"
+                                    FontSize="11" />
+
+                            <Button Grid.Column="2"
+                                    Content="Create Workflow"
+                                    Padding="10,4"
+                                    Command="{Binding ComposeWorkflowCommand}"
+                                    Background="#7B1FA2"
+                                    Foreground="White"
+                                    FontWeight="SemiBold"
+                                    FontSize="11"
+                                    BorderThickness="0"
+                                    IsEnabled="{Binding CanCreateWorkflow}" />
+                        </Grid>
                     </Border>
                 </Grid>
             </TabItem>
@@ -499,13 +636,20 @@
                                                     <!-- Result summary shown inline -->
                                                     <TextBlock Text="{Binding ResultSummary}"
                                                                FontSize="10"
-                                                               Foreground="#4CAF50"
+                                                               Foreground="{Binding ResultColor}"
                                                                Visibility="{Binding HasResult, Converter={StaticResource BoolToVisibility}}" />
-                                                    <TextBlock Text="{Binding ErrorMessage}"
+                                                    <TextBlock Text="{Binding ErrorSummary}"
                                                                FontSize="10"
                                                                Foreground="#F44336"
-                                                               TextWrapping="Wrap"
-                                                               Visibility="{Binding ErrorMessage, Converter={StaticResource NullToCollapsed}}" />
+                                                               TextTrimming="CharacterEllipsis"
+                                                               Visibility="{Binding ErrorSummary, Converter={StaticResource NullToCollapsed}}" />
+                                                    <!-- Dynamo warning inline indicator -->
+                                                    <TextBlock FontSize="10"
+                                                               Foreground="#FF8F00"
+                                                               Visibility="{Binding HasDynamoWarnings, Converter={StaticResource BoolToVisibility}}">
+                                                        <Run Text="&#x26A0;" />
+                                                        <Run Text="Dynamo warnings detected — expand for details" />
+                                                    </TextBlock>
                                                 </StackPanel>
 
                                                 <!-- Timestamp -->
@@ -557,6 +701,48 @@
                                                     Padding="8"
                                                     Visibility="{Binding IsExpanded, Converter={StaticResource BoolToVisibility}}">
                                                 <StackPanel>
+                                                    <!-- Error message (selectable) -->
+                                                    <StackPanel Visibility="{Binding HasError, Converter={StaticResource BoolToVisibility}}">
+                                                        <TextBlock Text="Error:"
+                                                                   FontWeight="SemiBold"
+                                                                   FontSize="11"
+                                                                   Foreground="#F44336"
+                                                                   Margin="0,0,0,4" />
+                                                        <TextBox Text="{Binding ErrorPrimary, Mode=OneWay}"
+                                                                 FontSize="10"
+                                                                 FontFamily="Consolas"
+                                                                 IsReadOnly="True"
+                                                                 TextWrapping="Wrap"
+                                                                 Background="#fff"
+                                                                 BorderThickness="1"
+                                                                 BorderBrush="#FFCDD2"
+                                                                 Foreground="#D32F2F"
+                                                                 Padding="4"
+                                                                 MaxHeight="80"
+                                                                 VerticalScrollBarVisibility="Auto" />
+                                                    </StackPanel>
+
+                                                    <!-- Diagnostics (separate from error) -->
+                                                    <StackPanel Visibility="{Binding HasDiagnostics, Converter={StaticResource BoolToVisibility}}">
+                                                        <TextBlock Text="Diagnostics:"
+                                                                   FontWeight="SemiBold"
+                                                                   FontSize="11"
+                                                                   Foreground="#666"
+                                                                   Margin="0,8,0,4" />
+                                                        <TextBox Text="{Binding DiagnosticsText, Mode=OneWay}"
+                                                                 FontSize="10"
+                                                                 FontFamily="Consolas"
+                                                                 IsReadOnly="True"
+                                                                 TextWrapping="Wrap"
+                                                                 Background="#fff"
+                                                                 BorderThickness="1"
+                                                                 BorderBrush="#ddd"
+                                                                 Foreground="#555"
+                                                                 Padding="4"
+                                                                 MaxHeight="120"
+                                                                 VerticalScrollBarVisibility="Auto" />
+                                                    </StackPanel>
+
                                                     <!-- Model Changes section -->
                                                     <StackPanel Visibility="{Binding HasModelChanges, Converter={StaticResource BoolToVisibility}}">
                                                         <TextBlock Text="Model Changes:"
@@ -564,11 +750,36 @@
                                                                    FontSize="11"
                                                                    Foreground="#1a73e8"
                                                                    Margin="0,0,0,4" />
-                                                        <TextBlock Text="{Binding ModelChangesSummary}"
+                                                        <TextBox Text="{Binding ModelChangesSummary, Mode=OneWay}"
+                                                                 FontSize="11"
+                                                                 FontFamily="Consolas"
+                                                                 IsReadOnly="True"
+                                                                 TextWrapping="Wrap"
+                                                                 Foreground="#333"
+                                                                 Background="Transparent"
+                                                                 BorderThickness="0"
+                                                                 Padding="0" />
+                                                    </StackPanel>
+
+                                                    <!-- Dynamo Warnings/Errors -->
+                                                    <StackPanel Visibility="{Binding HasDynamoWarnings, Converter={StaticResource BoolToVisibility}}">
+                                                        <TextBlock Text="Dynamo Warnings:"
+                                                                   FontWeight="SemiBold"
                                                                    FontSize="11"
-                                                                   FontFamily="Consolas"
-                                                                   Foreground="#333"
-                                                                   TextWrapping="Wrap" />
+                                                                   Foreground="#FF8F00"
+                                                                   Margin="0,8,0,4" />
+                                                        <TextBox Text="{Binding DynamoWarningsSummary, Mode=OneWay}"
+                                                                 FontSize="10"
+                                                                 FontFamily="Consolas"
+                                                                 IsReadOnly="True"
+                                                                 TextWrapping="Wrap"
+                                                                 Background="#FFF8E1"
+                                                                 BorderThickness="1"
+                                                                 BorderBrush="#FFE082"
+                                                                 Foreground="#E65100"
+                                                                 Padding="4"
+                                                                 MaxHeight="100"
+                                                                 VerticalScrollBarVisibility="Auto" />
                                                     </StackPanel>
 
                                                     <!-- Input Arguments -->
@@ -607,6 +818,33 @@
                                                                  Padding="4"
                                                                  MaxHeight="120"
                                                                  VerticalScrollBarVisibility="Auto" />
+                                                    </StackPanel>
+
+                                                    <!-- Copy actions -->
+                                                    <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
+                                                        <Button Content="Copy Error"
+                                                                FontSize="10"
+                                                                Padding="8,2"
+                                                                Margin="0,0,6,0"
+                                                                Visibility="{Binding HasError, Converter={StaticResource BoolToVisibility}}"
+                                                                Command="{Binding DataContext.CopyErrorCommand, RelativeSource={RelativeSource AncestorType=ListView}}"
+                                                                CommandParameter="{Binding}" />
+                                                        <Button Content="Copy Run Details"
+                                                                FontSize="10"
+                                                                Padding="8,2"
+                                                                Command="{Binding DataContext.CopyRunDetailsCommand, RelativeSource={RelativeSource AncestorType=ListView}}"
+                                                                CommandParameter="{Binding}" />
+                                                        <Button Content="Open in Dynamo"
+                                                                FontSize="10"
+                                                                Padding="8,2"
+                                                                Margin="6,0,0,0"
+                                                                Visibility="{Binding IsDynamoTool, Converter={StaticResource BoolToVisibility}}"
+                                                                Command="{Binding DataContext.OpenInDynamoCommand, RelativeSource={RelativeSource AncestorType=ListView}}"
+                                                                CommandParameter="{Binding}"
+                                                                Background="#1a73e8"
+                                                                Foreground="White"
+                                                                FontWeight="SemiBold"
+                                                                BorderThickness="0" />
                                                     </StackPanel>
                                                 </StackPanel>
                                             </Border>
@@ -888,6 +1126,210 @@
                                     Padding="12,4"
                                     Command="{Binding SaveAsWorkflowCommand}"
                                     Background="#1a73e8"
+                                    Foreground="White"
+                                    FontWeight="SemiBold"
+                                    FontSize="11"
+                                    BorderThickness="0" />
+                        </Grid>
+                    </Border>
+                </Grid>
+            </TabItem>
+
+            <!-- Connections tab -->
+            <TabItem Header="Connections" x:Name="ConnectionsTab">
+                <Grid x:Name="ConnectionsGrid">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+
+                    <!-- Header bar -->
+                    <Border Grid.Row="0" Padding="8,6" BorderThickness="0,0,0,1" BorderBrush="#ddd">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0"
+                                       Text="MCP Connections"
+                                       FontWeight="SemiBold"
+                                       FontSize="13"
+                                       VerticalAlignment="Center" />
+                            <Button Grid.Column="1"
+                                    Content="Refresh"
+                                    Padding="10,4"
+                                    Margin="0,0,6,0"
+                                    Command="{Binding RefreshCommand}"
+                                    FontSize="11" />
+                            <Button Grid.Column="2"
+                                    Content="+ Add Connection"
+                                    Padding="10,4"
+                                    Command="{Binding AddConnectionCommand}"
+                                    Background="#1a73e8"
+                                    Foreground="White"
+                                    FontWeight="SemiBold"
+                                    FontSize="11"
+                                    BorderThickness="0" />
+                        </Grid>
+                    </Border>
+
+                    <!-- Connection list -->
+                    <Grid Grid.Row="1">
+                        <!-- Empty state -->
+                        <TextBlock Text="No MCP connections configured. Click + Add Connection to connect an external server."
+                                   HorizontalAlignment="Center"
+                                   VerticalAlignment="Center"
+                                   Foreground="Gray"
+                                   FontSize="12"
+                                   TextWrapping="Wrap"
+                                   Margin="20"
+                                   Visibility="{Binding ShowEmptyState, Converter={StaticResource BoolToVisibility}}" />
+
+                        <!-- Loading indicator -->
+                        <TextBlock Text="Loading..."
+                                   HorizontalAlignment="Center"
+                                   VerticalAlignment="Center"
+                                   Foreground="Gray"
+                                   FontSize="12"
+                                   Visibility="{Binding IsLoading, Converter={StaticResource BoolToVisibility}}" />
+
+                        <!-- ListView -->
+                        <ListView ItemsSource="{Binding Connections}"
+                                  SelectedItem="{Binding SelectedConnection}"
+                                  BorderThickness="0"
+                                  Margin="4">
+                            <ListView.ItemContainerStyle>
+                                <Style TargetType="ListViewItem">
+                                    <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                                    <Setter Property="Padding" Value="0" />
+                                </Style>
+                            </ListView.ItemContainerStyle>
+                            <ListView.ItemTemplate>
+                                <DataTemplate>
+                                    <Border BorderBrush="#e0e0e0" BorderThickness="0,0,0,1" Padding="8,8">
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="Auto" />
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="Auto" />
+                                                <ColumnDefinition Width="Auto" />
+                                            </Grid.ColumnDefinitions>
+
+                                            <!-- Status dot -->
+                                            <Ellipse Grid.Column="0" Width="10" Height="10"
+                                                     Fill="{Binding StatusColor}"
+                                                     VerticalAlignment="Center"
+                                                     Margin="0,0,8,0" />
+
+                                            <!-- Name and details -->
+                                            <StackPanel Grid.Column="1">
+                                                <StackPanel Orientation="Horizontal">
+                                                    <TextBlock Text="{Binding Name}"
+                                                               FontWeight="SemiBold"
+                                                               FontSize="12" />
+                                                    <!-- Transport badge -->
+                                                    <Border CornerRadius="4" Padding="4,1" Margin="6,0,0,0"
+                                                            Background="#e3f2fd" VerticalAlignment="Center">
+                                                        <TextBlock Text="{Binding TransportBadge}"
+                                                                   FontSize="9" FontWeight="SemiBold"
+                                                                   Foreground="#1565C0" />
+                                                    </Border>
+                                                </StackPanel>
+                                                <TextBlock Text="{Binding ServerInfo}"
+                                                           FontSize="10" Foreground="#666"
+                                                           Margin="0,2,0,0" />
+                                                <TextBlock FontSize="10" Foreground="#888">
+                                                    <Run Text="{Binding DiscoveredToolCount, Mode=OneWay}" />
+                                                    <Run Text=" tools" />
+                                                </TextBlock>
+                                                <TextBlock Text="{Binding LastError}"
+                                                           FontSize="10" Foreground="#F44336"
+                                                           TextTrimming="CharacterEllipsis"
+                                                           MaxWidth="250"
+                                                           Visibility="{Binding LastError, Converter={StaticResource NullToCollapsed}}" />
+                                            </StackPanel>
+
+                                            <!-- Enable/Disable toggle -->
+                                            <ToggleButton Grid.Column="2"
+                                                          IsChecked="{Binding Enabled, Mode=OneWay}"
+                                                          Command="{Binding DataContext.ToggleEnabledCommand, RelativeSource={RelativeSource AncestorType=ListView}}"
+                                                          CommandParameter="{Binding}"
+                                                          VerticalAlignment="Center"
+                                                          Margin="4,0"
+                                                          Padding="6,2"
+                                                          Cursor="Hand">
+                                                <ToggleButton.Style>
+                                                    <Style TargetType="ToggleButton">
+                                                        <Setter Property="Content" Value="OFF" />
+                                                        <Setter Property="Background" Value="#e0e0e0" />
+                                                        <Setter Property="Foreground" Value="#666" />
+                                                        <Setter Property="BorderThickness" Value="0" />
+                                                        <Setter Property="FontSize" Value="10" />
+                                                        <Setter Property="FontWeight" Value="SemiBold" />
+                                                        <Style.Triggers>
+                                                            <Trigger Property="IsChecked" Value="True">
+                                                                <Setter Property="Content" Value="ON" />
+                                                                <Setter Property="Background" Value="#4CAF50" />
+                                                                <Setter Property="Foreground" Value="White" />
+                                                            </Trigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </ToggleButton.Style>
+                                            </ToggleButton>
+
+                                            <!-- Status text -->
+                                            <TextBlock Grid.Column="3"
+                                                       Text="{Binding Status}"
+                                                       FontSize="10"
+                                                       Foreground="#888"
+                                                       VerticalAlignment="Center"
+                                                       Margin="4,0,0,0"
+                                                       MinWidth="70"
+                                                       TextAlignment="Right" />
+                                        </Grid>
+                                    </Border>
+                                </DataTemplate>
+                            </ListView.ItemTemplate>
+                        </ListView>
+                    </Grid>
+
+                    <!-- Action bar -->
+                    <Border Grid.Row="2" Padding="8,6" BorderThickness="0,1,0,0" BorderBrush="#ddd">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+
+                            <TextBlock Grid.Column="0"
+                                       Text="{Binding StatusText}"
+                                       FontSize="11"
+                                       Foreground="#666"
+                                       VerticalAlignment="Center" />
+
+                            <Button Grid.Column="1"
+                                    Content="Test"
+                                    Padding="10,4"
+                                    Margin="0,0,6,0"
+                                    Command="{Binding TestConnectionCommand}"
+                                    FontSize="11" />
+
+                            <Button Grid.Column="2"
+                                    Content="Edit"
+                                    Padding="10,4"
+                                    Margin="0,0,6,0"
+                                    Command="{Binding EditConnectionCommand}"
+                                    FontSize="11" />
+
+                            <Button Grid.Column="3"
+                                    Content="Delete"
+                                    Padding="10,4"
+                                    Command="{Binding DeleteConnectionCommand}"
+                                    Background="#F44336"
                                     Foreground="White"
                                     FontWeight="SemiBold"
                                     FontSize="11"

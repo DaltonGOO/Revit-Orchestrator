@@ -1,0 +1,95 @@
+{
+  "name": "revit.place_family",
+  "adapter": "revit",
+  "description": "Places a family instance in the active Revit document. Supports point-based, wall-based, face-based, and work-plane-based placement. Requires explicit family_name and family_type_name — never silently substitutes.",
+  "version": "1.0.0",
+  "tags": ["geometry", "families", "placement"],
+  "permissions": {
+    "mode": "write",
+    "categories": ["Furniture", "Generic Models", "Plumbing Fixtures", "Lighting Fixtures", "Mechanical Equipment", "Electrical Equipment"],
+    "approval_required": false
+  },
+  "side_effects": ["creates_elements"],
+  "preconditions": [
+    { "check": "document_open" }
+  ],
+  "parameters": {
+    "type": "object",
+    "properties": {
+      "family_name": {
+        "type": "string",
+        "description": "Name of the Revit family (e.g. 'M_Single-Flush')"
+      },
+      "family_type_name": {
+        "type": "string",
+        "description": "Name of the family type/symbol (e.g. '0915 x 2134mm')"
+      },
+      "location": {
+        "type": "array",
+        "items": { "type": "number" },
+        "minItems": 3,
+        "maxItems": 3,
+        "description": "Placement point [X, Y, Z] in feet"
+      },
+      "level_name": {
+        "type": "string",
+        "description": "Name of the level to place on. If omitted, uses the lowest level."
+      },
+      "hosting_behavior": {
+        "type": "string",
+        "enum": ["PointBased", "WallBased", "FaceBased", "WorkPlaneBased"],
+        "description": "How the family is hosted. Defaults to PointBased."
+      },
+      "host_element_id": {
+        "type": "integer",
+        "description": "Element ID of the host element (required for WallBased placement)"
+      },
+      "rotation": {
+        "type": "number",
+        "description": "Rotation angle in radians around the Z axis at the placement point"
+      },
+      "facing_orientation": {
+        "type": "array",
+        "items": { "type": "number" },
+        "minItems": 3,
+        "maxItems": 3,
+        "description": "Facing orientation vector [X, Y, Z] (informational, used for replay matching)"
+      },
+      "structural_usage": {
+        "type": "string",
+        "description": "Structural usage: NonStructural, Beam, Column, Brace, etc."
+      }
+    },
+    "required": ["family_name", "family_type_name", "location"]
+  },
+  "returns": {
+    "type": "object",
+    "properties": {
+      "element_id": { "type": "integer" },
+      "message": { "type": "string" },
+      "hosting_behavior": { "type": "string" }
+    }
+  },
+  "examples": [
+    {
+      "description": "Place a chair at a specific point",
+      "args": {
+        "family_name": "Chair-Desk",
+        "family_type_name": "Chair-Desk",
+        "location": [10, 5, 0],
+        "level_name": "Level 1"
+      }
+    },
+    {
+      "description": "Place a wall-hosted fixture",
+      "args": {
+        "family_name": "M_Single-Flush",
+        "family_type_name": "0915 x 2134mm",
+        "location": [10, 0, 3],
+        "level_name": "Level 1",
+        "hosting_behavior": "WallBased",
+        "host_element_id": 12345
+      }
+    }
+  ]
+}

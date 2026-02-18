@@ -51,7 +51,13 @@
   },
   "governance": {
     "author": "Dalton",
+    "tags": [
+      "test"
+    ],
     "version": "1.0.0",
-    "permission_mode": "write"
+    "permission_mode": "write",
+    "side_effects": [
+      "creates_elements"
+    ]
   }
 }

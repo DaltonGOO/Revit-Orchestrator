@@ -1,7 +1,7 @@
 <Window x:Class="RevitOrchestrator.UI.ToolEditorDialog"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="Edit Tool Contract"
+        Title="Edit Tool"
         Width="780"
         Height="600"
         WindowStartupLocation="CenterOwner"
@@ -41,7 +41,7 @@
                         <ColumnDefinition Width="Auto" />
                         <ColumnDefinition Width="Auto" />
                     </Grid.ColumnDefinitions>
-                    <TextBlock Grid.Column="0" Text="Parameters"
+                    <TextBlock Grid.Column="0" Text="Inputs"
                                FontWeight="SemiBold" FontSize="14"
                                VerticalAlignment="Center" />
                     <Button Grid.Column="1" Content="+ Add" Padding="8,3"
@@ -295,68 +295,84 @@
                                  FontSize="11" Padding="4,3"
                                  ToolTip="Comma-separated tags" />
                     </Grid>
+                    <Grid Margin="0,0,0,6">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="80" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Text="Visibility:" FontSize="11" VerticalAlignment="Center" />
+                        <ComboBox Grid.Column="1"
+                                  SelectedItem="{Binding Visibility}"
+                                  ItemsSource="{Binding AvailableVisibilities}"
+                                  FontSize="11" Padding="4,3" />
+                    </Grid>
 
-                    <!-- Execution section -->
-                    <Border BorderThickness="0,1,0,0" BorderBrush="#ddd" Margin="0,8,0,0" Padding="0,8,0,0">
+                    <!-- Details: Execution, Side Effects, Permissions (collapsed by default) -->
+                    <Expander Header="Details" IsExpanded="False" Margin="0,8,0,0">
                         <StackPanel>
-                            <TextBlock Text="Execution Modes" FontWeight="SemiBold" FontSize="13" Margin="0,0,0,8" />
-                            <CheckBox Content="Headless (structured inputs)" IsChecked="{Binding SupportsHeadless}"
-                                      FontSize="11" Margin="0,0,0,4" />
-                            <CheckBox Content="Interactive (native UI)" IsChecked="{Binding SupportsInteractive}"
-                                      FontSize="11" Margin="0,0,0,4" />
-                            <Grid Margin="0,4,0,0"
-                                  Visibility="{Binding SupportsInteractive, Converter={StaticResource BoolToVis}}">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="80" />
-                                    <ColumnDefinition Width="*" />
-                                </Grid.ColumnDefinitions>
-                                <TextBlock Text="Hint:" FontSize="11" VerticalAlignment="Center" />
-                                <TextBox Grid.Column="1"
-                                         Text="{Binding InteractiveHint, UpdateSourceTrigger=PropertyChanged}"
-                                         FontSize="11" Padding="4,3"
-                                         ToolTip="Describes what the native UI does" />
-                            </Grid>
-                        </StackPanel>
-                    </Border>
+                            <!-- Execution section -->
+                            <Border BorderThickness="0,1,0,0" BorderBrush="#ddd" Margin="0,4,0,0" Padding="0,8,0,0">
+                                <StackPanel>
+                                    <TextBlock Text="Execution Modes" FontWeight="SemiBold" FontSize="13" Margin="0,0,0,8" />
+                                    <CheckBox Content="Headless (structured inputs)" IsChecked="{Binding SupportsHeadless}"
+                                              FontSize="11" Margin="0,0,0,4" />
+                                    <CheckBox Content="Interactive (native UI)" IsChecked="{Binding SupportsInteractive}"
+                                              FontSize="11" Margin="0,0,0,4" />
+                                    <Grid Margin="0,4,0,0"
+                                          Visibility="{Binding SupportsInteractive, Converter={StaticResource BoolToVis}}">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="80" />
+                                            <ColumnDefinition Width="*" />
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Text="Hint:" FontSize="11" VerticalAlignment="Center" />
+                                        <TextBox Grid.Column="1"
+                                                 Text="{Binding InteractiveHint, UpdateSourceTrigger=PropertyChanged}"
+                                                 FontSize="11" Padding="4,3"
+                                                 ToolTip="Describes what the native UI does" />
+                                    </Grid>
+                                </StackPanel>
+                            </Border>
 
-                    <!-- Side Effects section -->
-                    <Border BorderThickness="0,1,0,0" BorderBrush="#ddd" Margin="0,8,0,0" Padding="0,8,0,0">
-                        <StackPanel>
-                            <TextBlock Text="Side Effects" FontWeight="SemiBold" FontSize="13" Margin="0,0,0,8" />
-                            <CheckBox Content="Creates elements" IsChecked="{Binding CreatesElements}"
-                                      FontSize="11" Margin="0,0,0,3" />
-                            <CheckBox Content="Modifies elements" IsChecked="{Binding ModifiesElements}"
-                                      FontSize="11" Margin="0,0,0,3" />
-                            <CheckBox Content="Deletes elements" IsChecked="{Binding DeletesElements}"
-                                      FontSize="11" Margin="0,0,0,3" />
-                            <CheckBox Content="Modifies parameters" IsChecked="{Binding ModifiesParameters}"
-                                      FontSize="11" Margin="0,0,0,3" />
-                            <CheckBox Content="Changes view" IsChecked="{Binding ChangesView}"
-                                      FontSize="11" Margin="0,0,0,3" />
-                            <CheckBox Content="File I/O" IsChecked="{Binding FileIo}"
-                                      FontSize="11" Margin="0,0,0,3" />
-                        </StackPanel>
-                    </Border>
+                            <!-- Side Effects section -->
+                            <Border BorderThickness="0,1,0,0" BorderBrush="#ddd" Margin="0,8,0,0" Padding="0,8,0,0">
+                                <StackPanel>
+                                    <TextBlock Text="Side Effects" FontWeight="SemiBold" FontSize="13" Margin="0,0,0,8" />
+                                    <CheckBox Content="Creates elements" IsChecked="{Binding CreatesElements}"
+                                              FontSize="11" Margin="0,0,0,3" />
+                                    <CheckBox Content="Modifies elements" IsChecked="{Binding ModifiesElements}"
+                                              FontSize="11" Margin="0,0,0,3" />
+                                    <CheckBox Content="Deletes elements" IsChecked="{Binding DeletesElements}"
+                                              FontSize="11" Margin="0,0,0,3" />
+                                    <CheckBox Content="Modifies parameters" IsChecked="{Binding ModifiesParameters}"
+                                              FontSize="11" Margin="0,0,0,3" />
+                                    <CheckBox Content="Changes view" IsChecked="{Binding ChangesView}"
+                                              FontSize="11" Margin="0,0,0,3" />
+                                    <CheckBox Content="File I/O" IsChecked="{Binding FileIo}"
+                                              FontSize="11" Margin="0,0,0,3" />
+                                </StackPanel>
+                            </Border>
 
-                    <!-- Permissions section -->
-                    <Border BorderThickness="0,1,0,0" BorderBrush="#ddd" Margin="0,8,0,0" Padding="0,8,0,0">
-                        <StackPanel>
-                            <TextBlock Text="Permissions" FontWeight="SemiBold" FontSize="13" Margin="0,0,0,8" />
-                            <Grid Margin="0,0,0,6">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="80" />
-                                    <ColumnDefinition Width="*" />
-                                </Grid.ColumnDefinitions>
-                                <TextBlock Text="Mode:" FontSize="11" VerticalAlignment="Center" />
-                                <ComboBox Grid.Column="1"
-                                          SelectedItem="{Binding PermissionMode}"
-                                          ItemsSource="{Binding AvailablePermissionModes}"
-                                          FontSize="11" Padding="4,3" />
-                            </Grid>
-                            <CheckBox Content="Approval required" IsChecked="{Binding ApprovalRequired}"
-                                      FontSize="11" />
+                            <!-- Permissions section -->
+                            <Border BorderThickness="0,1,0,0" BorderBrush="#ddd" Margin="0,8,0,0" Padding="0,8,0,0">
+                                <StackPanel>
+                                    <TextBlock Text="Permissions" FontWeight="SemiBold" FontSize="13" Margin="0,0,0,8" />
+                                    <Grid Margin="0,0,0,6">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="80" />
+                                            <ColumnDefinition Width="*" />
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Text="Mode:" FontSize="11" VerticalAlignment="Center" />
+                                        <ComboBox Grid.Column="1"
+                                                  SelectedItem="{Binding PermissionMode}"
+                                                  ItemsSource="{Binding AvailablePermissionModes}"
+                                                  FontSize="11" Padding="4,3" />
+                                    </Grid>
+                                    <CheckBox Content="Approval required" IsChecked="{Binding ApprovalRequired}"
+                                              FontSize="11" />
+                                </StackPanel>
+                            </Border>
                         </StackPanel>
-                    </Border>
+                    </Expander>
                 </StackPanel>
             </ScrollViewer>
         </Grid>

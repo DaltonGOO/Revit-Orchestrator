@@ -62,10 +62,27 @@ class ChatSession:
             logger.debug("Starting agentic loop")
             await self._agentic_loop()
             logger.debug("Agentic loop completed successfully")
-        except Exception:
+        except Exception as exc:
             logger.exception("Error in chat session agentic loop")
+            # Give the user a specific error message instead of a generic one
+            error_msg = "An error occurred while processing your message."
+            exc_name = type(exc).__name__
+            exc_str = str(exc)
+            if "AuthenticationError" in exc_name or "401" in exc_str:
+                error_msg = (
+                    "**Authentication failed.** Your API key is invalid. "
+                    "Please check your API key in Settings.\n\n"
+                    "Note: Anthropic keys start with `sk-ant-`, "
+                    "OpenAI keys start with `sk-proj-` or `sk-`."
+                )
+            elif "RateLimitError" in exc_name or "429" in exc_str:
+                error_msg = "**Rate limit reached.** Please wait a moment and try again."
+            elif "api_key" in exc_str.lower() or "unauthorized" in exc_str.lower():
+                error_msg = f"**API error:** {exc_str}"
+            else:
+                error_msg = f"**Error:** {exc_name}: {exc_str}"
             try:
-                await self._send_response("An error occurred while processing your message.", is_final=True)
+                await self._send_response(error_msg, is_final=True)
             except Exception:
                 logger.exception("Failed to send error response back to client")
 

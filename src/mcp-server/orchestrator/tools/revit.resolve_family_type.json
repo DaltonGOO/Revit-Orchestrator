@@ -1,0 +1,39 @@
+{
+  "name": "revit.resolve_family_type",
+  "adapter": "revit",
+  "visibility": "internal",
+  "description": "Lists available family symbols in the active document and finds the best match for a recorded family/type. Used internally by the reconciliation mapper.",
+  "version": "1.0.0",
+  "tags": ["families", "reconciliation", "internal"],
+  "permissions": {
+    "mode": "read",
+    "categories": [],
+    "approval_required": false
+  },
+  "side_effects": [],
+  "preconditions": [
+    { "check": "document_open" }
+  ],
+  "parameters": {
+    "type": "object",
+    "properties": {
+      "family_name": {
+        "type": "string",
+        "description": "The recorded family name to match"
+      },
+      "family_type_name": {
+        "type": "string",
+        "description": "The recorded family type name to match"
+      }
+    },
+    "required": []
+  },
+  "returns": {
+    "type": "object",
+    "properties": {
+      "available": { "type": "array" },
+      "best_match": { "type": "object" },
+      "exact_match": { "type": "boolean" }
+    }
+  }
+}

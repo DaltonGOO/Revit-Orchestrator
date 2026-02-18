@@ -96,6 +96,49 @@
                                      FontFamily="Consolas"
                                      Padding="6,4"
                                      Visibility="{Binding IsTextInput, Converter={StaticResource BoolToVis}}" />
+
+                            <!-- File path input with Browse + validation -->
+                            <StackPanel Visibility="{Binding IsFilePath, Converter={StaticResource BoolToVis}}">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+
+                                    <!-- Validation indicator -->
+                                    <TextBlock Grid.Column="0"
+                                               Text="{Binding PathIndicator}"
+                                               Foreground="{Binding PathIndicatorColor}"
+                                               FontSize="14"
+                                               FontWeight="Bold"
+                                               VerticalAlignment="Center"
+                                               Margin="0,0,6,0" />
+
+                                    <!-- Path text input -->
+                                    <TextBox Grid.Column="1"
+                                             Text="{Binding CurrentValueText, UpdateSourceTrigger=PropertyChanged}"
+                                             FontSize="11"
+                                             FontFamily="Consolas"
+                                             Padding="6,4" />
+
+                                    <!-- Browse button -->
+                                    <Button Grid.Column="2"
+                                            Content="Browse..."
+                                            Padding="10,4"
+                                            Margin="6,0,0,0"
+                                            FontSize="11"
+                                            Click="BrowseButton_Click" />
+                                </Grid>
+
+                                <!-- Validation detail text -->
+                                <TextBlock Text="{Binding PathValidationText}"
+                                           FontSize="10"
+                                           FontFamily="Consolas"
+                                           Foreground="{Binding PathIndicatorColor}"
+                                           TextWrapping="Wrap"
+                                           Margin="20,2,0,0" />
+                            </StackPanel>
                         </StackPanel>
                     </DataTemplate>
                 </ItemsControl.ItemTemplate>

@@ -13,6 +13,7 @@ public partial class ChatPanel : UserControl, IDockablePaneProvider
     private readonly ToolManagerViewModel _toolManagerViewModel;
     private readonly HistoryViewModel _historyViewModel;
     private readonly RecordingViewModel _recordingViewModel;
+    private readonly ConnectionManagerViewModel _connectionManagerViewModel;
 
     public ChatPanel()
     {
@@ -20,6 +21,7 @@ public partial class ChatPanel : UserControl, IDockablePaneProvider
         _toolManagerViewModel = new ToolManagerViewModel();
         _historyViewModel = new HistoryViewModel();
         _recordingViewModel = new RecordingViewModel();
+        _connectionManagerViewModel = new ConnectionManagerViewModel();
 
         DataContext = _viewModel;
         InitializeComponent();
@@ -32,6 +34,9 @@ public partial class ChatPanel : UserControl, IDockablePaneProvider
 
         // Set the Recording tab DataContext to the recording VM
         RecordingGrid.DataContext = _recordingViewModel;
+
+        // Set the Connections tab DataContext to the connection manager VM
+        ConnectionsGrid.DataContext = _connectionManagerViewModel;
 
         // Initialize recording VM with the action recorder when available
         if (App.Instance?.ActionRecorder != null)
@@ -61,6 +66,11 @@ public partial class ChatPanel : UserControl, IDockablePaneProvider
         {
             // Auto-refresh tool list when switching to the Tools tab
             _toolManagerViewModel.RequestRefresh();
+        }
+        else if (e.Source is TabControl && MainTabControl.SelectedItem == ConnectionsTab)
+        {
+            // Auto-refresh connections when switching to the Connections tab
+            _connectionManagerViewModel.RequestRefresh();
         }
     }
 

@@ -56,6 +56,45 @@ public partial class RunWorkflowDialog : Window
         DialogResult = false;
         Close();
     }
+
+    private void BrowseButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is not FrameworkElement fe || fe.DataContext is not RunParameterViewModel param)
+            return;
+
+        var dlg = new Microsoft.Win32.OpenFileDialog();
+
+        // Set filter based on parameter key
+        var lower = param.Key.ToLowerInvariant();
+        if (lower.Contains("graph"))
+        {
+            dlg.Filter = "Dynamo Graphs (*.dyn)|*.dyn|All Files (*.*)|*.*";
+            dlg.DefaultExt = ".dyn";
+        }
+        else if (lower.Contains("script") || lower.Contains("python"))
+        {
+            dlg.Filter = "Python Scripts (*.py)|*.py|All Files (*.*)|*.*";
+            dlg.DefaultExt = ".py";
+        }
+        else
+        {
+            dlg.Filter = "All Files (*.*)|*.*";
+        }
+
+        // Start in current path's directory if valid
+        var current = param.CurrentValueText?.Trim() ?? "";
+        if (!string.IsNullOrEmpty(current))
+        {
+            var dir = System.IO.Path.GetDirectoryName(current);
+            if (!string.IsNullOrEmpty(dir) && System.IO.Directory.Exists(dir))
+                dlg.InitialDirectory = dir;
+        }
+
+        if (dlg.ShowDialog(this) == true)
+        {
+            param.CurrentValueText = dlg.FileName;
+        }
+    }
 }
 
 /// <summary>
@@ -131,6 +170,10 @@ public sealed class RunWorkflowViewModel : INotifyPropertyChanged
                 UiHint = DetermineUiHint(kvp.Key),
             };
             vm.Parameters.Add(param);
+
+            // Trigger initial path validation for pre-filled file paths
+            if (param.IsFilePath && !string.IsNullOrEmpty(param.CurrentValueText))
+                param.ValidatePath();
         }
 
         return vm;
@@ -161,6 +204,8 @@ public sealed class RunWorkflowViewModel : INotifyPropertyChanged
         var lower = key.ToLowerInvariant();
         if (lower == "level_name") return "level_dropdown";
         if (lower is "type_name" or "wall_type") return "type_dropdown";
+        if (lower.Contains("path") || lower.Contains("file") || lower.Contains("script"))
+            return "file_path";
         return null;
     }
 
@@ -179,6 +224,9 @@ public sealed class RunParameterViewModel : INotifyPropertyChanged
 {
     private string _currentValueText = "";
     private bool _boolValue;
+    private string _pathValidationText = "";
+    private bool _pathExists;
+    private System.Threading.CancellationTokenSource? _pathValidationCts;
 
     public string Key { get; set; } = "";
     public string DisplayName { get; set; } = "";
@@ -196,19 +244,113 @@ public sealed class RunParameterViewModel : INotifyPropertyChanged
     /// <summary>True for boolean parameters.</summary>
     public bool IsBoolType => Type == "boolean";
 
-    /// <summary>True when a plain text box should be shown (no dropdown, not bool).</summary>
-    public bool IsTextInput => !HasOptions && !IsBoolType;
+    /// <summary>True when a plain text box should be shown (no dropdown, not bool, not file).</summary>
+    public bool IsTextInput => !HasOptions && !IsBoolType && !IsFilePath;
+
+    /// <summary>True when this parameter should show file path UI (textbox + browse + validation).</summary>
+    public bool IsFilePath => UiHint == "file_path";
+
+    /// <summary>Path validation result text.</summary>
+    public string PathValidationText
+    {
+        get => _pathValidationText;
+        private set { _pathValidationText = value; OnPropertyChanged(); }
+    }
+
+    /// <summary>Whether the current path exists and is valid.</summary>
+    public bool PathExists
+    {
+        get => _pathExists;
+        private set { _pathExists = value; OnPropertyChanged(); OnPropertyChanged(nameof(PathIndicator)); OnPropertyChanged(nameof(PathIndicatorColor)); }
+    }
+
+    /// <summary>Icon for path validation status.</summary>
+    public string PathIndicator => string.IsNullOrWhiteSpace(CurrentValueText) ? "" : PathExists ? "\u2713" : "\u2717";
+
+    /// <summary>Color for the path validation indicator.</summary>
+    public string PathIndicatorColor => PathExists ? "#4CAF50" : "#F44336";
 
     public string CurrentValueText
     {
         get => _currentValueText;
-        set { _currentValueText = value; OnPropertyChanged(); }
+        set
+        {
+            _currentValueText = value;
+            OnPropertyChanged();
+            if (IsFilePath) ValidatePathDebounced();
+        }
     }
 
     public bool BoolValue
     {
         get => _boolValue;
         set { _boolValue = value; OnPropertyChanged(); CurrentValueText = value.ToString().ToLower(); }
+    }
+
+    /// <summary>
+    /// Validate the file path with a short debounce to avoid excessive I/O during typing.
+    /// </summary>
+    private async void ValidatePathDebounced()
+    {
+        _pathValidationCts?.Cancel();
+        _pathValidationCts = new System.Threading.CancellationTokenSource();
+        var token = _pathValidationCts.Token;
+
+        try
+        {
+            await System.Threading.Tasks.Task.Delay(350, token);
+            if (token.IsCancellationRequested) return;
+            ValidatePath();
+        }
+        catch (System.Threading.Tasks.TaskCanceledException) { }
+    }
+
+    /// <summary>
+    /// Synchronously validate the current path value.
+    /// </summary>
+    public void ValidatePath()
+    {
+        var path = CurrentValueText?.Trim() ?? "";
+        if (string.IsNullOrEmpty(path))
+        {
+            PathExists = false;
+            PathValidationText = "";
+            return;
+        }
+
+        // Normalize path
+        try { path = System.IO.Path.GetFullPath(path); } catch { }
+
+        // Extension check for Dynamo graphs
+        var ext = System.IO.Path.GetExtension(path);
+        if (Key.ToLowerInvariant().Contains("graph") && !string.IsNullOrEmpty(ext)
+            && !ext.Equals(".dyn", StringComparison.OrdinalIgnoreCase))
+        {
+            PathExists = false;
+            PathValidationText = $"Expected .dyn file, got {ext}";
+            return;
+        }
+
+        // Existence check
+        if (System.IO.File.Exists(path))
+        {
+            PathExists = true;
+            PathValidationText = path;
+            return;
+        }
+
+        // Check if directory exists (path might be wrong file name)
+        var dir = System.IO.Path.GetDirectoryName(path);
+        if (!string.IsNullOrEmpty(dir) && System.IO.Directory.Exists(dir))
+        {
+            PathExists = false;
+            PathValidationText = "File not found (directory exists)";
+        }
+        else
+        {
+            PathExists = false;
+            PathValidationText = "Path not found";
+        }
     }
 
     /// <summary>

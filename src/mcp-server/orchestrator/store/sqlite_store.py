@@ -14,7 +14,32 @@ from .blob_store import BlobStore
 
 logger = logging.getLogger(__name__)
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
+
+_SCHEMA_V2_SQL = """\
+-- MCP external connections
+CREATE TABLE IF NOT EXISTS connections (
+    id                    TEXT PRIMARY KEY,
+    name                  TEXT NOT NULL UNIQUE,
+    transport             TEXT NOT NULL CHECK(transport IN ('stdio','sse','streamable_http')),
+    enabled               INTEGER NOT NULL DEFAULT 1,
+    command               TEXT NOT NULL DEFAULT '',
+    args_json             TEXT NOT NULL DEFAULT '[]',
+    env_json              TEXT NOT NULL DEFAULT '{}',
+    url                   TEXT NOT NULL DEFAULT '',
+    headers_json          TEXT NOT NULL DEFAULT '{}',
+    auth_type             TEXT NOT NULL DEFAULT 'none',
+    auth_credential_enc   TEXT NOT NULL DEFAULT '',
+    server_name           TEXT NOT NULL DEFAULT '',
+    server_version        TEXT NOT NULL DEFAULT '',
+    discovered_tools_json TEXT NOT NULL DEFAULT '[]',
+    created_at            TEXT NOT NULL,
+    updated_at            TEXT NOT NULL,
+    last_connected_at     TEXT,
+    last_error            TEXT,
+    status                TEXT NOT NULL DEFAULT 'disconnected'
+);
+"""
 
 _SCHEMA_SQL = """\
 -- Schema versioning
@@ -183,12 +208,23 @@ class SqliteEventStore:
                 self._migrate_schema(current)
 
     def _migrate_schema(self, from_version: int) -> None:
-        # Future migrations go here
-        logger.info(
-            "Schema at v%d, current is v%d — no migration needed yet",
-            from_version,
-            SCHEMA_VERSION,
-        )
+        cur = self._conn.cursor()
+        if from_version < 2:
+            logger.info("Migrating schema from v%d to v2", from_version)
+            # Create connections table
+            self._conn.executescript(_SCHEMA_V2_SQL)
+            # Add traceability columns to events (ignore if they already exist)
+            for col in ("connection_id TEXT", "connection_tool TEXT"):
+                try:
+                    self._conn.execute(f"ALTER TABLE events ADD COLUMN {col}")
+                except sqlite3.OperationalError:
+                    pass  # column already exists
+            cur.execute(
+                "INSERT OR REPLACE INTO schema_version (version, applied_at) VALUES (?, ?)",
+                (2, _now_iso()),
+            )
+            self._conn.commit()
+            logger.info("Schema migrated to v2")
 
     # ------------------------------------------------------------------
     # AuditLog duck-type interface
@@ -669,6 +705,125 @@ class SqliteEventStore:
         if r.get("error_code"):
             event.setdefault("result_summary", {})["error_code"] = r["error_code"]
         return event
+
+    # ------------------------------------------------------------------
+    # Connections CRUD
+    # ------------------------------------------------------------------
+
+    def save_connection(self, conn_data: dict[str, Any]) -> None:
+        """Insert or replace a connection row."""
+        self._conn.execute(
+            """INSERT OR REPLACE INTO connections
+               (id, name, transport, enabled, command, args_json, env_json,
+                url, headers_json, auth_type, auth_credential_enc,
+                server_name, server_version, discovered_tools_json,
+                created_at, updated_at, last_connected_at, last_error, status)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            (
+                conn_data["id"],
+                conn_data["name"],
+                conn_data.get("transport", "stdio"),
+                1 if conn_data.get("enabled", True) else 0,
+                conn_data.get("command", ""),
+                json.dumps(conn_data.get("args", [])),
+                json.dumps(conn_data.get("env", {})),
+                conn_data.get("url", ""),
+                json.dumps(conn_data.get("headers", {})),
+                conn_data.get("auth_type", "none"),
+                conn_data.get("auth_credential_enc", ""),
+                conn_data.get("server_name", ""),
+                conn_data.get("server_version", ""),
+                conn_data.get("discovered_tools_json", "[]"),
+                conn_data.get("created_at", _now_iso()),
+                conn_data.get("updated_at", _now_iso()),
+                conn_data.get("last_connected_at"),
+                conn_data.get("last_error"),
+                conn_data.get("status", "disconnected"),
+            ),
+        )
+        self._conn.commit()
+
+    def load_connections(self) -> list[dict[str, Any]]:
+        """Load all connection rows."""
+        rows = self._conn.execute(
+            "SELECT * FROM connections ORDER BY name"
+        ).fetchall()
+        return [self._row_to_connection(r) for r in rows]
+
+    def load_connection(self, conn_id: str) -> Optional[dict[str, Any]]:
+        """Load a single connection by ID."""
+        row = self._conn.execute(
+            "SELECT * FROM connections WHERE id = ?", (conn_id,)
+        ).fetchone()
+        return self._row_to_connection(row) if row else None
+
+    def delete_connection(self, conn_id: str) -> bool:
+        """Delete a connection by ID. Returns True if a row was deleted."""
+        cur = self._conn.execute(
+            "DELETE FROM connections WHERE id = ?", (conn_id,)
+        )
+        self._conn.commit()
+        return cur.rowcount > 0
+
+    def update_connection(self, conn_id: str, updates: dict[str, Any]) -> bool:
+        """Update specific fields on a connection. Returns True if found."""
+        # Map Python-style fields to SQL column names
+        column_map = {
+            "name": "name",
+            "transport": "transport",
+            "enabled": "enabled",
+            "command": "command",
+            "args": "args_json",
+            "env": "env_json",
+            "url": "url",
+            "headers": "headers_json",
+            "auth_type": "auth_type",
+            "auth_credential_enc": "auth_credential_enc",
+            "server_name": "server_name",
+            "server_version": "server_version",
+            "discovered_tools_json": "discovered_tools_json",
+            "status": "status",
+            "last_error": "last_error",
+            "last_connected_at": "last_connected_at",
+        }
+        sets: list[str] = []
+        params: list[Any] = []
+        for key, value in updates.items():
+            col = column_map.get(key)
+            if col is None:
+                continue
+            if key == "enabled":
+                value = 1 if value else 0
+            elif key in ("args", "env", "headers"):
+                value = json.dumps(value)
+            sets.append(f"{col} = ?")
+            params.append(value)
+
+        if not sets:
+            return False
+
+        sets.append("updated_at = ?")
+        params.append(_now_iso())
+        params.append(conn_id)
+
+        sql = f"UPDATE connections SET {', '.join(sets)} WHERE id = ?"
+        cur = self._conn.execute(sql, params)
+        self._conn.commit()
+        return cur.rowcount > 0
+
+    @staticmethod
+    def _row_to_connection(row: sqlite3.Row) -> dict[str, Any]:
+        """Convert a connections row to a dict."""
+        r = dict(row)
+        # Parse JSON fields
+        for field, key in [("args_json", "args"), ("env_json", "env"), ("headers_json", "headers")]:
+            try:
+                r[key] = json.loads(r.pop(field, "{}"))
+            except (json.JSONDecodeError, TypeError):
+                r[key] = {} if key != "args" else []
+                r.pop(field, None)
+        r["enabled"] = bool(r.get("enabled", 1))
+        return r
 
     def close(self) -> None:
         """Close the database connection."""

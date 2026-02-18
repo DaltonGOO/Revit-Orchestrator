@@ -56,6 +56,26 @@
       "category": {
         "type": "string",
         "description": "Hint for the element category (e.g. 'Ducts', 'Pipes', 'Conduits', 'CableTrays')"
+      },
+      "system_type_name": {
+        "type": "string",
+        "description": "Exact name of the piping/mechanical system type (e.g. 'Hydronic Supply'). When provided, fails if not found instead of defaulting."
+      },
+      "mep_system_classification": {
+        "type": "string",
+        "description": "MEP system classification (e.g. 'Supply Air', 'Sanitary'). Used as fallback when system_type_name is not provided."
+      },
+      "mep_system_name": {
+        "type": "string",
+        "description": "Name of the specific MEP system the element belongs to (informational, for replay context)."
+      },
+      "pipe_type_name": {
+        "type": "string",
+        "description": "Name of the pipe type (informational, recorded during capture)."
+      },
+      "duct_type_name": {
+        "type": "string",
+        "description": "Name of the duct type (informational, recorded during capture)."
       }
     },
     "required": ["start_point", "end_point"]

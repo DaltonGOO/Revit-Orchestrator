@@ -9,10 +9,40 @@ namespace RevitOrchestrator.Models;
 public sealed class ToolInfo : INotifyPropertyChanged
 {
     private bool _isFavorite;
+    private bool _isSelected;
 
     public string Name { get; set; } = string.Empty;
     public string Description { get; set; } = string.Empty;
     public string Adapter { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Display badge derived from Adapter + Name prefix.
+    /// Values: "recorded", "composed", "dynamo", "pyrevit", "revit".
+    /// </summary>
+    public string BadgeText
+    {
+        get
+        {
+            if (Adapter == "mcp") return "MCP";
+            if (Adapter != "workflow") return Adapter;
+            if (Name.StartsWith("recorded.") || Name.StartsWith("captured.")) return "recorded";
+            return "composed";
+        }
+    }
+
+    /// <summary>
+    /// For MCP tools, the connection name parsed from the tool name (mcp.{conn}.{tool}).
+    /// </summary>
+    public string? ConnectionName
+    {
+        get
+        {
+            if (Adapter != "mcp" || !Name.StartsWith("mcp.")) return null;
+            var parts = Name.Split('.');
+            return parts.Length >= 3 ? parts[1] : null;
+        }
+    }
+
     public int ParameterCount { get; set; }
 
     /// <summary>
@@ -44,6 +74,9 @@ public sealed class ToolInfo : INotifyPropertyChanged
     /// <summary>Tags for categorization.</summary>
     public List<string> Tags { get; set; } = new();
 
+    /// <summary>Visibility: "user", "llm-only", or "internal".</summary>
+    public string Visibility { get; set; } = "user";
+
     public bool IsFavorite
     {
         get => _isFavorite;
@@ -51,6 +84,17 @@ public sealed class ToolInfo : INotifyPropertyChanged
         {
             if (_isFavorite == value) return;
             _isFavorite = value;
+            OnPropertyChanged();
+        }
+    }
+
+    public bool IsSelected
+    {
+        get => _isSelected;
+        set
+        {
+            if (_isSelected == value) return;
+            _isSelected = value;
             OnPropertyChanged();
         }
     }

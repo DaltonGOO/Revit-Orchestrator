@@ -12,7 +12,7 @@
     },
     "adapter": {
       "type": "string",
-      "enum": ["revit", "pyrevit", "dynamo", "workflow"],
+      "enum": ["revit", "pyrevit", "dynamo", "workflow", "mcp"],
       "description": "Which adapter handles execution"
     },
     "description": {
@@ -222,6 +222,12 @@
         }
       },
       "additionalProperties": false
+    },
+    "visibility": {
+      "type": "string",
+      "enum": ["user", "llm-only", "internal"],
+      "default": "user",
+      "description": "Controls where this tool appears. 'user' = UI and LLM. 'llm-only' = LLM only. 'internal' = neither."
     },
     "metadata": {
       "type": "object",

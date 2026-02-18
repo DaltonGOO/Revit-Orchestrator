@@ -25,6 +25,9 @@ public sealed class ToolManagerViewModel : INotifyPropertyChanged
     private ToolInfo? _selectedTool;
     private string _statusText = string.Empty;
     private string _searchText = string.Empty;
+    private string _selectedCategory = "All";
+    private bool _isComposeMode;
+    private int _selectedForComposeCount;
     private static List<ToolInfo>? _cachedTools;
     private readonly HashSet<string> _favorites;
 
@@ -39,11 +42,12 @@ public sealed class ToolManagerViewModel : INotifyPropertyChanged
         RefreshCommand = new RelayCommand(OnRefresh);
         AddToolCommand = new RelayCommand(OnAddTool);
         DeleteToolCommand = new RelayCommand(OnDeleteTool, () => SelectedTool != null);
-        EditToolCommand = new RelayCommand(OnEditTool, () => SelectedTool?.Adapter == "workflow");
-        EditContractCommand = new RelayCommand(OnEditContract, () => SelectedTool != null);
+        EditToolCommand = new RelayCommand(OnEditTool, () => SelectedTool != null);
         RunToolCommand = new RelayCommand(OnRunTool, () => SelectedTool != null);
         ClearSearchCommand = new RelayCommand(() => SearchText = string.Empty);
         ToggleFavoriteCommand = new RelayCommand<ToolInfo>(OnToggleFavorite);
+        ToggleComposeModeCommand = new RelayCommand(OnToggleComposeMode);
+        ComposeWorkflowCommand = new RelayCommand(OnComposeWorkflow, () => CanCreateWorkflow);
 
         ToolsView = CollectionViewSource.GetDefaultView(Tools);
         ToolsView.Filter = FilterTool;
@@ -77,6 +81,39 @@ public sealed class ToolManagerViewModel : INotifyPropertyChanged
         }
     }
 
+    public string SelectedCategory
+    {
+        get => _selectedCategory;
+        set
+        {
+            if (_selectedCategory == value) return;
+            _selectedCategory = value;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(IsAllCategory));
+            OnPropertyChanged(nameof(IsAtomicCategory));
+            OnPropertyChanged(nameof(IsWorkflowCategory));
+            ApplyFilter();
+        }
+    }
+
+    public bool IsAllCategory
+    {
+        get => _selectedCategory == "All";
+        set { if (value) SelectedCategory = "All"; }
+    }
+
+    public bool IsAtomicCategory
+    {
+        get => _selectedCategory == "Atomic Tools";
+        set { if (value) SelectedCategory = "Atomic Tools"; }
+    }
+
+    public bool IsWorkflowCategory
+    {
+        get => _selectedCategory == "Workflows";
+        set { if (value) SelectedCategory = "Workflows"; }
+    }
+
     public ToolInfo? SelectedTool
     {
         get => _selectedTool;
@@ -86,7 +123,6 @@ public sealed class ToolManagerViewModel : INotifyPropertyChanged
             OnPropertyChanged();
             (DeleteToolCommand as RelayCommand)?.RaiseCanExecuteChanged();
             (EditToolCommand as RelayCommand)?.RaiseCanExecuteChanged();
-            (EditContractCommand as RelayCommand)?.RaiseCanExecuteChanged();
             (RunToolCommand as RelayCommand)?.RaiseCanExecuteChanged();
         }
     }
@@ -107,26 +143,67 @@ public sealed class ToolManagerViewModel : INotifyPropertyChanged
 
     public bool ShowNoResults => !IsLoading && Tools.Count > 0 && !string.IsNullOrEmpty(SearchText) && ToolsView.IsEmpty;
 
+    public bool IsComposeMode
+    {
+        get => _isComposeMode;
+        set
+        {
+            if (_isComposeMode == value) return;
+            _isComposeMode = value;
+            OnPropertyChanged();
+            if (!value) ClearSelections();
+            OnPropertyChanged(nameof(CanCreateWorkflow));
+        }
+    }
+
+    public int SelectedForComposeCount
+    {
+        get => _selectedForComposeCount;
+        private set
+        {
+            if (_selectedForComposeCount == value) return;
+            _selectedForComposeCount = value;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(CanCreateWorkflow));
+            OnPropertyChanged(nameof(ComposeStatusText));
+            (ComposeWorkflowCommand as RelayCommand)?.RaiseCanExecuteChanged();
+        }
+    }
+
+    public bool CanCreateWorkflow => IsComposeMode && SelectedForComposeCount >= 2;
+
+    public string ComposeStatusText => SelectedForComposeCount == 0
+        ? "Select tools to compose into a workflow"
+        : $"{SelectedForComposeCount} tool(s) selected";
+
     public ICommand RefreshCommand { get; }
     public ICommand AddToolCommand { get; }
     public ICommand DeleteToolCommand { get; }
     public ICommand EditToolCommand { get; }
-    public ICommand EditContractCommand { get; }
     public ICommand RunToolCommand { get; }
     public ICommand ClearSearchCommand { get; }
     public ICommand ToggleFavoriteCommand { get; }
+    public ICommand ToggleComposeModeCommand { get; }
+    public ICommand ComposeWorkflowCommand { get; }
 
     private bool FilterTool(object obj)
     {
+        if (obj is not ToolInfo tool) return false;
+
+        // Hide non-user tools from the UI
+        if (tool.Visibility != "user") return false;
+
+        // Category filter
+        var isWorkflow = tool.BadgeText is "recorded" or "composed";
+        if (_selectedCategory == "Workflows" && !isWorkflow) return false;
+        if (_selectedCategory == "Atomic Tools" && isWorkflow) return false;
+
         if (string.IsNullOrEmpty(_searchText))
             return true;
 
-        if (obj is not ToolInfo tool)
-            return false;
-
         return tool.Name.Contains(_searchText, StringComparison.OrdinalIgnoreCase)
             || tool.Description.Contains(_searchText, StringComparison.OrdinalIgnoreCase)
-            || tool.Adapter.Contains(_searchText, StringComparison.OrdinalIgnoreCase);
+            || tool.BadgeText.Contains(_searchText, StringComparison.OrdinalIgnoreCase);
     }
 
     private void ApplyFilter()
@@ -142,13 +219,18 @@ public sealed class ToolManagerViewModel : INotifyPropertyChanged
         if (Tools.Count == 0)
             return;
 
-        if (string.IsNullOrEmpty(_searchText))
+        var filtered = ToolsView.Cast<object>().Count();
+
+        if (_selectedCategory != "All")
         {
-            StatusText = $"{Tools.Count} tool(s) registered";
+            StatusText = $"{filtered} of {Tools.Count} tool(s) in '{_selectedCategory}'";
+        }
+        else if (string.IsNullOrEmpty(_searchText))
+        {
+            StatusText = $"{filtered} tool(s) registered";
         }
         else
         {
-            var filtered = ToolsView.Cast<object>().Count();
             StatusText = $"{filtered} of {Tools.Count} tool(s) matching '{_searchText}'";
         }
     }
@@ -159,9 +241,14 @@ public sealed class ToolManagerViewModel : INotifyPropertyChanged
         {
             if (_cachedTools is { Count: > 0 })
             {
+                foreach (var old in Tools)
+                    old.PropertyChanged -= OnToolIsSelectedChanged;
                 Tools.Clear();
                 foreach (var tool in _cachedTools)
+                {
+                    tool.PropertyChanged += OnToolIsSelectedChanged;
                     Tools.Add(tool);
+                }
                 StatusText = $"{_cachedTools.Count} tool(s) (cached - not connected)";
                 ApplyFavorites();
                 ApplyFilter();
@@ -277,10 +364,23 @@ public sealed class ToolManagerViewModel : INotifyPropertyChanged
             _dispatcher.Invoke(() =>
             {
                 var success = payload.TryGetProperty("success", out var s) && s.GetBoolean();
-                var error = payload.TryGetProperty("error", out var e) ? e.GetString() ?? "" : "";
-                StatusText = success
-                    ? $"'{toolName}' completed successfully"
-                    : $"'{toolName}' failed: {error}";
+                if (success)
+                {
+                    StatusText = $"'{toolName}' completed successfully";
+                }
+                else
+                {
+                    var error = payload.TryGetProperty("error", out var e) ? e.GetString() ?? "" : "";
+                    var errorCode = payload.TryGetProperty("error_code", out var ec) ? ec.GetString() ?? "" : "";
+
+                    // Show only a concise summary — full details in History tab
+                    var firstLine = error.Split('\n')[0].Trim();
+                    if (firstLine.Length > 100)
+                        firstLine = firstLine[..97] + "...";
+
+                    var summary = !string.IsNullOrEmpty(errorCode) ? $"[{errorCode}] {firstLine}" : firstLine;
+                    StatusText = $"'{toolName}' failed: {summary}  (see History for details)";
+                }
                 tcs.TrySetResult(success);
             });
         }
@@ -359,6 +459,9 @@ public sealed class ToolManagerViewModel : INotifyPropertyChanged
     {
         _dispatcher.Invoke(() =>
         {
+            // Unwire event handlers from old tools before clearing
+            foreach (var old in Tools)
+                old.PropertyChanged -= OnToolIsSelectedChanged;
             Tools.Clear();
             if (payload.TryGetProperty("tools", out var toolsArray))
             {
@@ -370,6 +473,7 @@ public sealed class ToolManagerViewModel : INotifyPropertyChanged
                         Description = item.TryGetProperty("description", out var d) ? d.GetString() ?? "" : "",
                         Adapter = item.TryGetProperty("adapter", out var a) ? a.GetString() ?? "" : "",
                         ParameterCount = item.TryGetProperty("parameter_count", out var p) ? p.GetInt32() : 0,
+                        Visibility = item.TryGetProperty("visibility", out var vis) ? vis.GetString() ?? "user" : "user",
                     };
 
                     // Parse execution modes
@@ -430,6 +534,7 @@ public sealed class ToolManagerViewModel : INotifyPropertyChanged
                         }
                     }
 
+                    toolInfo.PropertyChanged += OnToolIsSelectedChanged;
                     Tools.Add(toolInfo);
                 }
             }
@@ -442,7 +547,7 @@ public sealed class ToolManagerViewModel : INotifyPropertyChanged
 
     private async void OnEditTool()
     {
-        if (SelectedTool is null || SelectedTool.Adapter != "workflow")
+        if (SelectedTool is null)
             return;
 
         if (App.Instance?.PipeListener is not { } listener || !listener.IsConnected)
@@ -451,14 +556,29 @@ public sealed class ToolManagerViewModel : INotifyPropertyChanged
             return;
         }
 
-        StatusText = "Loading workflow...";
-        try
+        if (SelectedTool.Adapter == "workflow")
         {
-            await listener.LoadWorkflowAsync(SelectedTool.Name);
+            StatusText = "Loading workflow...";
+            try
+            {
+                await listener.LoadWorkflowAsync(SelectedTool.Name);
+            }
+            catch (Exception ex)
+            {
+                StatusText = $"Error: {ex.Message}";
+            }
         }
-        catch (Exception ex)
+        else
         {
-            StatusText = $"Error: {ex.Message}";
+            StatusText = "Loading tool definition...";
+            try
+            {
+                await listener.LoadToolAsync(SelectedTool.Name);
+            }
+            catch (Exception ex)
+            {
+                StatusText = $"Error: {ex.Message}";
+            }
         }
     }
 
@@ -485,6 +605,20 @@ public sealed class ToolManagerViewModel : INotifyPropertyChanged
             def.OriginalName = def.Name;
 
             var vm = new WorkflowEditorViewModel(def);
+
+            // Mark steps that reference other workflow tools
+            if (_cachedTools is { Count: > 0 })
+            {
+                var workflowNames = new HashSet<string>(
+                    _cachedTools.Where(t => t.Adapter == "workflow").Select(t => t.Name),
+                    StringComparer.Ordinal);
+                foreach (var step in vm.Steps)
+                {
+                    if (workflowNames.Contains(step.ToolName))
+                        step.IsWorkflowTool = true;
+                }
+            }
+
             var resultDef = await WorkflowEditorDialog.ShowWithTestSupportAsync(vm);
             if (resultDef != null)
             {
@@ -510,28 +644,6 @@ public sealed class ToolManagerViewModel : INotifyPropertyChanged
                 definition.Name, definition.Description, definition.Steps, definition);
             StatusText = $"Saved: {definition.Name}";
             RequestRefresh();
-        }
-        catch (Exception ex)
-        {
-            StatusText = $"Error: {ex.Message}";
-        }
-    }
-
-    private async void OnEditContract()
-    {
-        if (SelectedTool is null)
-            return;
-
-        if (App.Instance?.PipeListener is not { } listener || !listener.IsConnected)
-        {
-            StatusText = "Not connected to server";
-            return;
-        }
-
-        StatusText = "Loading tool definition...";
-        try
-        {
-            await listener.LoadToolAsync(SelectedTool.Name);
         }
         catch (Exception ex)
         {
@@ -681,6 +793,24 @@ public sealed class ToolManagerViewModel : INotifyPropertyChanged
                     }
                 }
 
+                // Parse snapshot metadata
+                if (stepEl.TryGetProperty("snapshot", out var snapEl) && snapEl.ValueKind == JsonValueKind.Object)
+                {
+                    step.Snapshot = new Dictionary<string, object?>();
+                    foreach (var prop in snapEl.EnumerateObject())
+                        step.Snapshot[prop.Name] = GetJsonValue(prop.Value);
+
+                    step.SourceType = snapEl.TryGetProperty("source_type", out var stEl)
+                        ? stEl.GetString() ?? "tool" : "tool";
+                    step.SourceAdapter = snapEl.TryGetProperty("adapter", out var saEl)
+                        ? saEl.GetString() ?? "" : "";
+                }
+                else
+                {
+                    step.SourceType = step.ToolName.StartsWith("recorded.") ? "recording" : "tool";
+                    step.SourceAdapter = "";
+                }
+
                 def.Steps.Add(step);
             }
         }
@@ -695,6 +825,20 @@ public sealed class ToolManagerViewModel : INotifyPropertyChanged
                 foreach (var flag in flags.EnumerateArray())
                     def.LlmReviewFlags.Add(flag.GetString() ?? "");
             }
+        }
+
+        // Parse derived contract
+        if (wfEl.TryGetProperty("derived_contract", out var derived))
+        {
+            if (derived.TryGetProperty("side_effects", out var dse))
+                foreach (var se in dse.EnumerateArray())
+                    def.DerivedSideEffects.Add(se.GetString() ?? "");
+            def.DerivedPermissionMode = derived.TryGetProperty("permission_mode", out var dpm)
+                ? dpm.GetString() : null;
+            if (derived.TryGetProperty("preconditions", out var dpc))
+                foreach (var pc in dpc.EnumerateArray())
+                    if (pc.TryGetProperty("check", out var chk))
+                        def.DerivedPreconditions.Add(chk.GetString() ?? "");
         }
 
         return def;
@@ -743,7 +887,7 @@ public sealed class ToolManagerViewModel : INotifyPropertyChanged
 
         var toolName = SelectedTool.Name;
         var result = System.Windows.MessageBox.Show(
-            $"Are you sure you want to delete '{toolName}'?\n\nThis will remove the tool definition file and cannot be undone.",
+            $"Are you sure you want to delete '{toolName}'?\n\nThis will remove the tool definition file and cannot be undone.\n\nNote: This tool may be used as a step in existing workflows. Deleting it could break those workflows.",
             "Delete Tool",
             System.Windows.MessageBoxButton.YesNo,
             System.Windows.MessageBoxImage.Warning);
@@ -794,6 +938,87 @@ public sealed class ToolManagerViewModel : INotifyPropertyChanged
                 StatusText = $"Delete failed: {error}";
             }
         });
+    }
+
+    private void OnToggleComposeMode()
+    {
+        IsComposeMode = !IsComposeMode;
+    }
+
+    private async void OnComposeWorkflow()
+    {
+        var selected = Tools.Where(t => t.IsSelected).ToList();
+        if (selected.Count < 2) return;
+
+        var vm = new WorkflowEditorViewModel();
+
+        // Default name from first tool
+        var shortName = selected[0].Name;
+        if (shortName.Contains('.'))
+            shortName = shortName[(shortName.LastIndexOf('.') + 1)..];
+        vm.WorkflowName = $"composed.{shortName}";
+        vm.WorkflowDescription = $"Composed workflow: {string.Join(" → ", selected.Select(t => t.Name))}";
+
+        foreach (var tool in selected)
+        {
+            var step = new WorkflowStepViewModel
+            {
+                ToolName = tool.Name,
+                OnFailure = "stop",
+                IsWorkflowTool = tool.Adapter == "workflow",
+                SourceType = tool.Name.StartsWith("recorded.") ? "recording" : "tool",
+                SourceAdapter = tool.Adapter,
+                OnPromotionChanged = vm.RefreshPromotedParameters,
+            };
+
+            // Pre-populate args from tool's parameter schema
+            foreach (var kvp in tool.ParameterSchema)
+            {
+                var defaultVal = kvp.Value.DefaultValue;
+                var valueJson = defaultVal switch
+                {
+                    null => "",
+                    string s => s,
+                    _ => JsonSerializer.Serialize(defaultVal),
+                };
+                var argVm = new StepArgViewModel
+                {
+                    Key = kvp.Key,
+                    ValueJson = valueJson,
+                    IsPromoted = AutoPromotionHelper.ShouldAutoPromote(kvp.Key),
+                    OnPromotionChanged = vm.RefreshPromotedParameters,
+                };
+                step.Args.Add(argVm);
+            }
+
+            vm.Steps.Add(step);
+        }
+
+        vm.RefreshPromotedParameters();
+
+        var resultDef = await WorkflowEditorDialog.ShowWithTestSupportAsync(vm);
+        if (resultDef != null)
+        {
+            await SaveEditedWorkflowAsync(resultDef);
+        }
+
+        // Exit compose mode and clear selections
+        IsComposeMode = false;
+    }
+
+    private void ClearSelections()
+    {
+        foreach (var tool in Tools)
+            tool.IsSelected = false;
+        SelectedForComposeCount = 0;
+    }
+
+    private void OnToolIsSelectedChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(ToolInfo.IsSelected))
+        {
+            SelectedForComposeCount = Tools.Count(t => t.IsSelected);
+        }
     }
 
     private void OnToggleFavorite(ToolInfo? tool)

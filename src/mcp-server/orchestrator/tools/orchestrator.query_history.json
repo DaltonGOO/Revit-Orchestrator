@@ -1,6 +1,7 @@
 {
   "name": "orchestrator.query_history",
   "adapter": "workflow",
+  "visibility": "llm-only",
   "description": "Queries the execution history from the audit log. Returns summaries of past tool executions.",
   "version": "1.0.0",
   "tags": ["observability", "history", "audit"],

@@ -1,6 +1,7 @@
 {
   "name": "orchestrator.replay_run",
   "adapter": "workflow",
+  "visibility": "llm-only",
   "description": "Replays a previous tool execution run from the audit log. By default runs in dry-run mode for safety.",
   "version": "1.0.0",
   "tags": ["observability", "replay", "audit"],

@@ -47,6 +47,11 @@ public sealed class RevitCommandHandler : IExternalEventHandler
     {
         _uiApp = app;
 
+        // Always keep the fresh UIApplication reference (InitializeActionRecorder
+        // only sets it once; we need it current for every execution context).
+        if (App.Instance != null)
+            App.Instance.UiApplication = app;
+
         // Initialize action recorder if not already done
         App.Instance?.InitializeActionRecorder(app);
 

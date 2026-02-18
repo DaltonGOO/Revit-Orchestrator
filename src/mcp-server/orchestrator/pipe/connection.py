@@ -53,6 +53,13 @@ class PipeConnection:
         on_tool_load_request: Callable[[PipeConnection, dict[str, Any]], Awaitable[None]] | None = None,
         on_tool_update_request: Callable[[PipeConnection, dict[str, Any]], Awaitable[None]] | None = None,
         on_settings_request: Callable[[PipeConnection, dict[str, Any]], Awaitable[None]] | None = None,
+        on_settings_update_request: Callable[[PipeConnection, dict[str, Any]], Awaitable[None]] | None = None,
+        on_connection_list_request: Callable[[PipeConnection, dict[str, Any]], Awaitable[None]] | None = None,
+        on_connection_add_request: Callable[[PipeConnection, dict[str, Any]], Awaitable[None]] | None = None,
+        on_connection_update_request: Callable[[PipeConnection, dict[str, Any]], Awaitable[None]] | None = None,
+        on_connection_delete_request: Callable[[PipeConnection, dict[str, Any]], Awaitable[None]] | None = None,
+        on_connection_test_request: Callable[[PipeConnection, dict[str, Any]], Awaitable[None]] | None = None,
+        on_connection_toggle_request: Callable[[PipeConnection, dict[str, Any]], Awaitable[None]] | None = None,
     ) -> None:
         self._reader = reader
         self._writer = writer
@@ -71,6 +78,13 @@ class PipeConnection:
         self._on_tool_load_request = on_tool_load_request
         self._on_tool_update_request = on_tool_update_request
         self._on_settings_request = on_settings_request
+        self._on_settings_update_request = on_settings_update_request
+        self._on_connection_list_request = on_connection_list_request
+        self._on_connection_add_request = on_connection_add_request
+        self._on_connection_update_request = on_connection_update_request
+        self._on_connection_delete_request = on_connection_delete_request
+        self._on_connection_test_request = on_connection_test_request
+        self._on_connection_toggle_request = on_connection_toggle_request
         self._pending: dict[str, concurrent.futures.Future[dict[str, Any]]] = {}
         self._connected = True
         self._read_task: asyncio.Task[None] | None = None
@@ -96,6 +110,13 @@ class PipeConnection:
         on_tool_load_request: Callable[[PipeConnection, dict[str, Any]], Awaitable[None]] | None = None,
         on_tool_update_request: Callable[[PipeConnection, dict[str, Any]], Awaitable[None]] | None = None,
         on_settings_request: Callable[[PipeConnection, dict[str, Any]], Awaitable[None]] | None = None,
+        on_settings_update_request: Callable[[PipeConnection, dict[str, Any]], Awaitable[None]] | None = None,
+        on_connection_list_request: Callable[[PipeConnection, dict[str, Any]], Awaitable[None]] | None = None,
+        on_connection_add_request: Callable[[PipeConnection, dict[str, Any]], Awaitable[None]] | None = None,
+        on_connection_update_request: Callable[[PipeConnection, dict[str, Any]], Awaitable[None]] | None = None,
+        on_connection_delete_request: Callable[[PipeConnection, dict[str, Any]], Awaitable[None]] | None = None,
+        on_connection_test_request: Callable[[PipeConnection, dict[str, Any]], Awaitable[None]] | None = None,
+        on_connection_toggle_request: Callable[[PipeConnection, dict[str, Any]], Awaitable[None]] | None = None,
     ) -> PipeConnection:
         """Create a connection backed by a win32 pipe handle."""
         return cls(
@@ -114,6 +135,13 @@ class PipeConnection:
             on_tool_load_request=on_tool_load_request,
             on_tool_update_request=on_tool_update_request,
             on_settings_request=on_settings_request,
+            on_settings_update_request=on_settings_update_request,
+            on_connection_list_request=on_connection_list_request,
+            on_connection_add_request=on_connection_add_request,
+            on_connection_update_request=on_connection_update_request,
+            on_connection_delete_request=on_connection_delete_request,
+            on_connection_test_request=on_connection_test_request,
+            on_connection_toggle_request=on_connection_toggle_request,
         )
 
     @property
@@ -261,6 +289,20 @@ class PipeConnection:
                     handler = self._on_tool_update_request
                 elif msg_type == "settings_request" and self._on_settings_request:
                     handler = self._on_settings_request
+                elif msg_type == "settings_update_request" and self._on_settings_update_request:
+                    handler = self._on_settings_update_request
+                elif msg_type == "connection_list_request" and self._on_connection_list_request:
+                    handler = self._on_connection_list_request
+                elif msg_type == "connection_add_request" and self._on_connection_add_request:
+                    handler = self._on_connection_add_request
+                elif msg_type == "connection_update_request" and self._on_connection_update_request:
+                    handler = self._on_connection_update_request
+                elif msg_type == "connection_delete_request" and self._on_connection_delete_request:
+                    handler = self._on_connection_delete_request
+                elif msg_type == "connection_test_request" and self._on_connection_test_request:
+                    handler = self._on_connection_test_request
+                elif msg_type == "connection_toggle_request" and self._on_connection_toggle_request:
+                    handler = self._on_connection_toggle_request
                 elif msg_type == "chat_message" and self._on_chat_message:
                     handler = self._on_chat_message
 
@@ -369,6 +411,13 @@ class PipeConnection:
                 self._pending[call_id].set_result(message)
                 return
 
+        # Resolve mapping_response by call_id (reconciliation flow)
+        if msg_type == "mapping_response":
+            call_id = message.get("payload", {}).get("call_id")
+            if call_id and call_id in self._pending:
+                self._pending[call_id].set_result(message)
+                return
+
         # Resolve screenshot / context / element_identity responses by call_id
         if msg_type in (
             "screenshot_response",
@@ -384,57 +433,32 @@ class PipeConnection:
                 self._pending[call_id].set_result(message)
                 return
 
-        if msg_type == "chat_message":
-            # Put on thread-safe queue — picked up by _chat_worker thread
+        # All message types that should be routed to the chat worker queue.
+        _QUEUED_TYPES = {
+            "chat_message",
+            "tool_list_request",
+            "tool_add_request",
+            "tool_delete_request",
+            "workflow_save_request",
+            "workflow_load_request",
+            "workflow_review_request",
+            "workflow_test_request",
+            "workflow_run_request",
+            "tool_run_request",
+            "tool_load_request",
+            "tool_update_request",
+            "settings_request",
+            "settings_update_request",
+            "connection_list_request",
+            "connection_add_request",
+            "connection_update_request",
+            "connection_delete_request",
+            "connection_test_request",
+            "connection_toggle_request",
+        }
+
+        if msg_type in _QUEUED_TYPES:
             self._chat_msg_queue.put(message)
             return
 
-        if msg_type == "tool_list_request":
-            self._chat_msg_queue.put(message)
-            return
-
-        if msg_type == "tool_add_request":
-            self._chat_msg_queue.put(message)
-            return
-
-        if msg_type == "tool_delete_request":
-            self._chat_msg_queue.put(message)
-            return
-
-        if msg_type == "workflow_save_request":
-            self._chat_msg_queue.put(message)
-            return
-
-        if msg_type == "workflow_load_request":
-            self._chat_msg_queue.put(message)
-            return
-
-        if msg_type == "workflow_review_request":
-            self._chat_msg_queue.put(message)
-            return
-
-        if msg_type == "workflow_test_request":
-            self._chat_msg_queue.put(message)
-            return
-
-        if msg_type == "workflow_run_request":
-            self._chat_msg_queue.put(message)
-            return
-
-        if msg_type == "tool_run_request":
-            self._chat_msg_queue.put(message)
-            return
-
-        if msg_type == "tool_load_request":
-            self._chat_msg_queue.put(message)
-            return
-
-        if msg_type == "tool_update_request":
-            self._chat_msg_queue.put(message)
-            return
-
-        if msg_type == "settings_request":
-            self._chat_msg_queue.put(message)
-            return
-
-        logger.warning("Unhandled message type: %s", msg_type)
+        logger.warning("Unhandled message type: %s (repr=%r)", msg_type, msg_type)

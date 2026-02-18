@@ -34,6 +34,11 @@ public class WorkflowDefinition
     public string? LlmReviewSummary { get; set; }
     public List<string> LlmReviewFlags { get; set; } = new();
     public bool WasLlmReviewed { get; set; } = false;
+
+    // Auto-derived from step tools (read-only, set from server response)
+    public List<string> DerivedSideEffects { get; set; } = new();
+    public string? DerivedPermissionMode { get; set; }
+    public List<string> DerivedPreconditions { get; set; } = new();
 }
 
 /// <summary>

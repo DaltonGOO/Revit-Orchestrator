@@ -93,6 +93,7 @@ class ExecutionLogger:
         # Extract model changes data
         delta_json = None
         error_code = None
+        connection_info = None
         if result is not None:
             created = result.data.get("model_changes", {}).get("created", [])
             modified = result.data.get("model_changes", {}).get("modified", [])
@@ -106,6 +107,8 @@ class ExecutionLogger:
                 delta_json = json.dumps(mcs, default=str)
             if not result.success:
                 error_code = result.error_code
+            # Extract MCP connection traceability
+            connection_info = result.data.get("_connection")
 
         # Use episode-aware API if available (SqliteEventStore)
         if hasattr(self._audit_log, "log_step"):
@@ -135,6 +138,15 @@ class ExecutionLogger:
                             except Exception:
                                 logger.debug("Entity tracking failed (non-fatal)")
 
+                    # Build context with connection traceability
+                    context_json = None
+                    if connection_info:
+                        context_json = json.dumps({
+                            "connection_id": connection_info.get("connection_id", ""),
+                            "connection_name": connection_info.get("connection_name", ""),
+                            "original_tool_name": connection_info.get("original_tool_name", ""),
+                        }, default=str)
+
                     self._audit_log.update_step(
                         event_id=event_id,
                         status=event_type,
@@ -144,6 +156,16 @@ class ExecutionLogger:
                         error_json=json.dumps(error) if error else None,
                         targets_json=targets_json,
                     )
+                    # Write connection traceability to context column
+                    if context_json and hasattr(self._audit_log, '_conn'):
+                        try:
+                            self._audit_log._conn.execute(
+                                "UPDATE events SET context_json = ? WHERE id = ?",
+                                (context_json, event_id),
+                            )
+                            self._audit_log._conn.commit()
+                        except Exception:
+                            logger.debug("Failed to write connection context", exc_info=True)
             except Exception:
                 logger.exception("Failed to write to event store")
             return

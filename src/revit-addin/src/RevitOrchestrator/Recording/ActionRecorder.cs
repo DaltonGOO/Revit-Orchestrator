@@ -4,6 +4,8 @@ using System.Linq;
 using Autodesk.Revit.DB;
 using Autodesk.Revit.DB.Events;
 using Autodesk.Revit.DB.Mechanical;
+using Autodesk.Revit.DB.Plumbing;
+using Autodesk.Revit.DB.Structure;
 using Autodesk.Revit.UI;
 using Autodesk.Revit.UI.Events;
 using RevitOrchestrator.Models;
@@ -336,7 +338,13 @@ public sealed class ActionRecorder : IDisposable
             "doors" => actionType == RecordedActionType.Create ? "revit.place_door" : "revit.modify_element",
             "windows" => actionType == RecordedActionType.Create ? "revit.place_window" : "revit.modify_element",
             "rooms" => actionType == RecordedActionType.Create ? "revit.create_room" : "revit.modify_element",
-            "furniture" => actionType == RecordedActionType.Create ? "revit.place_family" : "revit.modify_element",
+            // Family-based categories → revit.place_family
+            "furniture" or "furniture systems"
+                or "plumbing fixtures" or "lighting fixtures" or "mechanical equipment"
+                or "electrical equipment" or "electrical fixtures"
+                or "specialty equipment" or "generic models"
+                or "columns" or "structural columns" or "structural framing"
+                => actionType == RecordedActionType.Create ? "revit.place_family" : "revit.modify_element",
             // MEP categories → revit.create_element
             "ducts" or "duct accessories" or "duct fittings" or "flex ducts" => actionType == RecordedActionType.Create ? "revit.create_element" : "revit.modify_element",
             "pipes" or "pipe accessories" or "pipe fittings" or "flex pipes" => actionType == RecordedActionType.Create ? "revit.create_element" : "revit.modify_element",
@@ -406,6 +414,125 @@ public sealed class ActionRecorder : IDisposable
 
             // Record category hint so replay picks the right MEP type
             action.Parameters["category"] = element.Category?.Name ?? "";
+
+            // --- MEP system identity for deterministic replay ---
+            CaptureMepSystemIdentity(doc, mepCurve, action);
+        }
+
+        // Capture family instance metadata for deterministic replay
+        if (element is FamilyInstance fi)
+        {
+            CaptureFamilyInstanceMetadata(doc, fi, action);
+        }
+    }
+
+    /// <summary>
+    /// Captures MEP system type identity so replay picks the correct system
+    /// instead of defaulting to .FirstOrDefault().
+    /// </summary>
+    private static void CaptureMepSystemIdentity(Document doc, MEPCurve mepCurve, RecordedAction action)
+    {
+        try
+        {
+            // System classification (e.g. "Supply Air", "Hydronic Supply")
+            var classParam = mepCurve.get_Parameter(BuiltInParameter.RBS_SYSTEM_CLASSIFICATION_PARAM);
+            if (classParam?.HasValue == true)
+            {
+                action.Parameters["mep_system_classification"] = classParam.AsString() ?? "";
+            }
+
+            // System name (the specific system the element belongs to)
+            var sysNameParam = mepCurve.get_Parameter(BuiltInParameter.RBS_SYSTEM_NAME_PARAM);
+            if (sysNameParam?.HasValue == true)
+            {
+                action.Parameters["mep_system_name"] = sysNameParam.AsString() ?? "";
+            }
+
+            // Piping system type name
+            if (mepCurve is Autodesk.Revit.DB.Plumbing.Pipe pipe)
+            {
+                var pipingSystemType = doc.GetElement(pipe.MEPSystem?.GetTypeId() ?? ElementId.InvalidElementId);
+                if (pipingSystemType != null)
+                {
+                    action.Parameters["system_type_name"] = pipingSystemType.Name;
+                }
+                action.Parameters["pipe_type_name"] = doc.GetElement(pipe.GetTypeId())?.Name ?? "";
+            }
+            else if (mepCurve is Duct duct)
+            {
+                var mechSystemType = doc.GetElement(duct.MEPSystem?.GetTypeId() ?? ElementId.InvalidElementId);
+                if (mechSystemType != null)
+                {
+                    action.Parameters["system_type_name"] = mechSystemType.Name;
+                }
+                action.Parameters["duct_type_name"] = doc.GetElement(duct.GetTypeId())?.Name ?? "";
+            }
+        }
+        catch
+        {
+            // Non-fatal: system identity is best-effort enrichment
+        }
+    }
+
+    /// <summary>
+    /// Captures family instance metadata including hosting behavior, host element,
+    /// orientation, and structural usage for deterministic replay.
+    /// </summary>
+    private static void CaptureFamilyInstanceMetadata(Document doc, FamilyInstance fi, RecordedAction action)
+    {
+        try
+        {
+            var family = fi.Symbol?.Family;
+            if (family != null)
+            {
+                action.Parameters["family_name"] = family.Name;
+                action.Parameters["hosting_behavior"] = family.FamilyPlacementType.ToString();
+            }
+            action.Parameters["family_type_name"] = fi.Symbol?.Name ?? "";
+
+            // Host element info
+            if (fi.Host != null)
+            {
+                action.Parameters["host_element_id"] = fi.Host.Id.Value;
+                action.Parameters["host_unique_id"] = fi.Host.UniqueId;
+                action.Parameters["host_category"] = fi.Host.Category?.Name ?? "";
+                var hostType = doc.GetElement(fi.Host.GetTypeId());
+                if (hostType != null)
+                {
+                    action.Parameters["host_type_name"] = hostType.Name;
+                }
+            }
+
+            // Orientation vectors
+            try
+            {
+                var facingOri = fi.FacingOrientation;
+                action.Parameters["facing_orientation"] = new[] { facingOri.X, facingOri.Y, facingOri.Z };
+            }
+            catch { /* Not all instances have FacingOrientation */ }
+
+            try
+            {
+                var handOri = fi.HandOrientation;
+                action.Parameters["hand_orientation"] = new[] { handOri.X, handOri.Y, handOri.Z };
+            }
+            catch { /* Not all instances have HandOrientation */ }
+
+            // Rotation (from LocationPoint)
+            if (fi.Location is LocationPoint lp)
+            {
+                action.Parameters["rotation"] = lp.Rotation;
+            }
+
+            // Structural usage
+            if (fi.StructuralUsage != StructuralInstanceUsage.NonStructural)
+            {
+                action.Parameters["structural_usage"] = fi.StructuralUsage.ToString();
+            }
+        }
+        catch
+        {
+            // Non-fatal: family metadata is best-effort enrichment
         }
     }
 

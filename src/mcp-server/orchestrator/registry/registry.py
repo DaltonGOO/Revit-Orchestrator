@@ -25,6 +25,16 @@ class ToolRegistry:
         self._observer: Observer | None = None
         self._on_change_callbacks: list[Callable[[], None]] = []
 
+    @staticmethod
+    def _apply_defaults(definition: dict[str, Any]) -> None:
+        """Apply default values to a tool definition (mutates in place)."""
+        if "visibility" not in definition:
+            name = definition.get("name", "")
+            if name.startswith("orchestrator."):
+                definition["visibility"] = "llm-only"
+            else:
+                definition["visibility"] = "user"
+
     def load_from_directory(self, tools_dir: Path) -> None:
         """Load all tool definitions from a directory."""
         tools = load_all_tools(tools_dir)
@@ -42,6 +52,7 @@ class ToolRegistry:
                         if definition.get("superseded_by")
                         else "",
                     )
+                self._apply_defaults(definition)
                 valid_tools[name] = definition
 
         with self._lock:
@@ -79,6 +90,14 @@ class ToolRegistry:
                 if tag in t.get("tags", [])
             ]
 
+    def list_tools_by_visibility(self, visibility: str) -> list[dict[str, Any]]:
+        """Return all tool definitions with the specified visibility."""
+        with self._lock:
+            return [
+                t for t in self._tools.values()
+                if t.get("visibility", "user") == visibility
+            ]
+
     def register(self, definition: dict[str, Any]) -> None:
         """Register or update a single tool definition."""
         errors = validate_tool_definition(definition)
@@ -93,6 +112,7 @@ class ToolRegistry:
                 if definition.get("superseded_by")
                 else "",
             )
+        self._apply_defaults(definition)
         with self._lock:
             self._tools[name] = definition
         logger.info("Registered tool: %s", name)

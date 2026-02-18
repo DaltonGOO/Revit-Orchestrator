@@ -1,6 +1,7 @@
 {
   "name": "orchestrator.search_similar",
   "adapter": "workflow",
+  "visibility": "llm-only",
   "description": "Search for similar past tool executions or episodes using natural language. Finds historically similar operations by embedding similarity.",
   "version": "1.0.0",
   "tags": ["history", "search", "ml"],

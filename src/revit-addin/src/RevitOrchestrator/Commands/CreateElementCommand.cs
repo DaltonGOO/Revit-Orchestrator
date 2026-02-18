@@ -96,6 +96,14 @@ public sealed class CreateElementCommand : IRevitCommand
                 "No MEP curve types found in the document. Ensure the project has duct, pipe, conduit, or cable tray types loaded.");
         }
 
+        // Parse optional system type identity for deterministic replay
+        string? systemTypeName = null;
+        string? mepSystemClassification = null;
+        if (args.TryGetProperty("system_type_name", out var sysTypeNameProp))
+            systemTypeName = sysTypeNameProp.GetString();
+        if (args.TryGetProperty("mep_system_classification", out var sysClassProp))
+            mepSystemClassification = sysClassProp.GetString();
+
         // Create the element based on matched type.
         // IMPORTANT: Use the (systemTypeId, curveTypeId, levelId, start, end) overload
         // to avoid ambiguity with the (curveTypeId, levelId, connector, start, end) overload
@@ -104,25 +112,25 @@ public sealed class CreateElementCommand : IRevitCommand
         Element element;
         if (matchedType is DuctType ductType)
         {
-            var systemType = new FilteredElementCollector(doc)
-                .OfClass(typeof(MechanicalSystemType))
-                .FirstOrDefault();
+            var systemType = ResolveMechanicalSystemType(doc, systemTypeName, mepSystemClassification);
             if (systemType is null)
             {
-                return ToolResult.Fail("", "REVIT_API_ERROR",
-                    "No mechanical system types found in the document");
+                return ToolResult.Fail("", systemTypeName != null ? "SYSTEM_TYPE_NOT_FOUND" : "REVIT_API_ERROR",
+                    systemTypeName != null
+                        ? $"Mechanical system type '{systemTypeName}' not found in the document. Use revit.resolve_system_type to find available types."
+                        : "No mechanical system types found in the document");
             }
             element = Duct.Create(doc, systemType.Id, ductType.Id, level.Id, startPoint, endPoint);
         }
         else if (matchedType is PipeType pipeType)
         {
-            var systemType = new FilteredElementCollector(doc)
-                .OfClass(typeof(PipingSystemType))
-                .FirstOrDefault();
+            var systemType = ResolvePipingSystemType(doc, systemTypeName, mepSystemClassification);
             if (systemType is null)
             {
-                return ToolResult.Fail("", "REVIT_API_ERROR",
-                    "No piping system types found in the document");
+                return ToolResult.Fail("", systemTypeName != null ? "SYSTEM_TYPE_NOT_FOUND" : "REVIT_API_ERROR",
+                    systemTypeName != null
+                        ? $"Piping system type '{systemTypeName}' not found in the document. Use revit.resolve_system_type to find available types."
+                        : "No piping system types found in the document");
             }
             element = RevitPipe.Create(doc, systemType.Id, pipeType.Id, level.Id, startPoint, endPoint);
         }
@@ -177,5 +185,69 @@ public sealed class CreateElementCommand : IRevitCommand
             ["element_id"] = element.Id.Value,
             ["message"] = $"{matchedType.GetType().Name.Replace("Type", "")} created successfully",
         });
+    }
+
+    /// <summary>
+    /// Resolves a MechanicalSystemType by exact name, then by classification, then fallback.
+    /// Returns null only when an explicit name was requested but not found.
+    /// </summary>
+    private static Element? ResolveMechanicalSystemType(
+        Document doc, string? systemTypeName, string? classification)
+    {
+        var allTypes = new FilteredElementCollector(doc)
+            .OfClass(typeof(MechanicalSystemType))
+            .ToList();
+
+        // 1. Exact name match (strict — fail if explicitly requested but missing)
+        if (!string.IsNullOrEmpty(systemTypeName))
+        {
+            return allTypes.FirstOrDefault(t => t.Name == systemTypeName);
+        }
+
+        // 2. Match by classification
+        if (!string.IsNullOrEmpty(classification))
+        {
+            var byClass = allTypes.FirstOrDefault(t =>
+            {
+                var param = t.get_Parameter(BuiltInParameter.RBS_SYSTEM_CLASSIFICATION_PARAM);
+                return param?.AsString() == classification;
+            });
+            if (byClass != null) return byClass;
+        }
+
+        // 3. Backward-compatible fallback for old workflows without system identity
+        return allTypes.FirstOrDefault();
+    }
+
+    /// <summary>
+    /// Resolves a PipingSystemType by exact name, then by classification, then fallback.
+    /// Returns null only when an explicit name was requested but not found.
+    /// </summary>
+    private static Element? ResolvePipingSystemType(
+        Document doc, string? systemTypeName, string? classification)
+    {
+        var allTypes = new FilteredElementCollector(doc)
+            .OfClass(typeof(PipingSystemType))
+            .ToList();
+
+        // 1. Exact name match (strict — fail if explicitly requested but missing)
+        if (!string.IsNullOrEmpty(systemTypeName))
+        {
+            return allTypes.FirstOrDefault(t => t.Name == systemTypeName);
+        }
+
+        // 2. Match by classification
+        if (!string.IsNullOrEmpty(classification))
+        {
+            var byClass = allTypes.FirstOrDefault(t =>
+            {
+                var param = t.get_Parameter(BuiltInParameter.RBS_SYSTEM_CLASSIFICATION_PARAM);
+                return param?.AsString() == classification;
+            });
+            if (byClass != null) return byClass;
+        }
+
+        // 3. Backward-compatible fallback for old workflows without system identity
+        return allTypes.FirstOrDefault();
     }
 }

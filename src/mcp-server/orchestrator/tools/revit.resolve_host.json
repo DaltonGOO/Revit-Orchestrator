@@ -1,0 +1,51 @@
+{
+  "name": "revit.resolve_host",
+  "adapter": "revit",
+  "visibility": "internal",
+  "description": "Finds a host element by unique_id or element_id. Returns nearby candidates of the same category if not found. Used internally by the reconciliation mapper.",
+  "version": "1.0.0",
+  "tags": ["families", "reconciliation", "internal"],
+  "permissions": {
+    "mode": "read",
+    "categories": [],
+    "approval_required": false
+  },
+  "side_effects": [],
+  "preconditions": [
+    { "check": "document_open" }
+  ],
+  "parameters": {
+    "type": "object",
+    "properties": {
+      "host_unique_id": {
+        "type": "string",
+        "description": "UniqueId of the host element"
+      },
+      "host_element_id": {
+        "type": "integer",
+        "description": "Element ID of the host element"
+      },
+      "host_category": {
+        "type": "string",
+        "description": "Category name of the host element for candidate search"
+      },
+      "location": {
+        "type": "array",
+        "items": { "type": "number" },
+        "minItems": 3,
+        "maxItems": 3,
+        "description": "Location point for proximity-based candidate search"
+      }
+    },
+    "required": []
+  },
+  "returns": {
+    "type": "object",
+    "properties": {
+      "found": { "type": "boolean" },
+      "element_id": { "type": "integer" },
+      "unique_id": { "type": "string" },
+      "candidates": { "type": "array" }
+    }
+  }
+}

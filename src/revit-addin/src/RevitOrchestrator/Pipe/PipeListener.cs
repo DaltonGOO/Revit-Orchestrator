@@ -2,6 +2,7 @@ using System.Text.Json;
 using RevitOrchestrator.Capture;
 using RevitOrchestrator.Execution;
 using RevitOrchestrator.Models;
+using RevitOrchestrator.Settings;
 
 namespace RevitOrchestrator.Pipe;
 
@@ -35,12 +36,26 @@ public sealed class PipeListener : IDisposable
     public event Action<JsonElement>? OnToolLoadResponse;
     public event Action<JsonElement>? OnToolUpdateResponse;
     public event Action<JsonElement>? OnSettingsResponse;
+    public event Action<JsonElement>? OnSettingsUpdateResponse;
+    public event Action<JsonElement>? OnConnectionListResponse;
+    public event Action<JsonElement>? OnConnectionAddResponse;
+    public event Action<JsonElement>? OnConnectionUpdateResponse;
+    public event Action<JsonElement>? OnConnectionDeleteResponse;
+    public event Action<JsonElement>? OnConnectionTestResponse;
+    public event Action<JsonElement>? OnConnectionToggleResponse;
+    public event Action<JsonElement>? OnConnectionStatusEvent;
 
     /// <summary>
     /// Fired when an approval request is received from the Python server.
     /// The handler should show a dialog and return the result.
     /// </summary>
     public Func<ApprovalRequest, Task<bool>>? OnApprovalRequest;
+
+    /// <summary>
+    /// Fired when a mapping request is received from the Python reconciliation mapper.
+    /// The handler should show a dialog and return the user's mapping decision.
+    /// </summary>
+    public Func<MappingRequest, Task<MappingResponse>>? OnMappingRequest;
 
     /// <summary>
     /// Function to gather current Revit run context for status queries.
@@ -148,6 +163,7 @@ public sealed class PipeListener : IDisposable
             ["on_failure"] = s.OnFailure,
             ["max_retries"] = s.MaxRetries,
             ["timeout_ms"] = s.TimeoutMs,
+            ["snapshot"] = s.Snapshot,
         }).ToList();
 
         var payload = new Dictionary<string, object?>
@@ -322,6 +338,24 @@ public sealed class PipeListener : IDisposable
     }
 
     /// <summary>
+    /// Send LLM settings to the Python server for hot-swap.
+    /// </summary>
+    public async Task UpdateSettingsAsync(string provider, string apiKey, string model, string baseUrl)
+    {
+        if (_client is null || !_client.IsConnected)
+            throw new InvalidOperationException("Pipe is not connected");
+
+        var message = PipeMessage.Create("settings_update_request", new
+        {
+            llm_provider = provider,
+            api_key = apiKey,
+            model,
+            base_url = baseUrl,
+        });
+        await _client.SendAsync(message);
+    }
+
+    /// <summary>
     /// Send an updated tool definition to the Python server for validation and saving.
     /// </summary>
     public async Task UpdateToolAsync(string toolName, Dictionary<string, object?> definition)
@@ -335,6 +369,79 @@ public sealed class PipeListener : IDisposable
             definition,
         });
         await _client.SendAsync(msg);
+    }
+
+    /// <summary>
+    /// Request the list of MCP connections from the Python server.
+    /// </summary>
+    public async Task RequestConnectionListAsync()
+    {
+        if (_client is null || !_client.IsConnected)
+            throw new InvalidOperationException("Pipe is not connected");
+
+        var message = PipeMessage.Create("connection_list_request", new { });
+        await _client.SendAsync(message);
+    }
+
+    /// <summary>
+    /// Request to add a new MCP connection.
+    /// </summary>
+    public async Task AddConnectionAsync(Dictionary<string, object?> connectionData)
+    {
+        if (_client is null || !_client.IsConnected)
+            throw new InvalidOperationException("Pipe is not connected");
+
+        var message = PipeMessage.Create("connection_add_request", connectionData);
+        await _client.SendAsync(message);
+    }
+
+    /// <summary>
+    /// Request to update an existing MCP connection.
+    /// </summary>
+    public async Task UpdateConnectionAsync(string connectionId, Dictionary<string, object?> updates)
+    {
+        if (_client is null || !_client.IsConnected)
+            throw new InvalidOperationException("Pipe is not connected");
+
+        updates["connection_id"] = connectionId;
+        var message = PipeMessage.Create("connection_update_request", updates);
+        await _client.SendAsync(message);
+    }
+
+    /// <summary>
+    /// Request to delete an MCP connection.
+    /// </summary>
+    public async Task DeleteConnectionAsync(string connectionId)
+    {
+        if (_client is null || !_client.IsConnected)
+            throw new InvalidOperationException("Pipe is not connected");
+
+        var message = PipeMessage.Create("connection_delete_request", new { connection_id = connectionId });
+        await _client.SendAsync(message);
+    }
+
+    /// <summary>
+    /// Request to test an MCP connection (temporary connect + discover tools).
+    /// </summary>
+    public async Task TestConnectionAsync(string connectionId)
+    {
+        if (_client is null || !_client.IsConnected)
+            throw new InvalidOperationException("Pipe is not connected");
+
+        var message = PipeMessage.Create("connection_test_request", new { connection_id = connectionId });
+        await _client.SendAsync(message);
+    }
+
+    /// <summary>
+    /// Request to enable or disable an MCP connection.
+    /// </summary>
+    public async Task ToggleConnectionAsync(string connectionId, bool enabled)
+    {
+        if (_client is null || !_client.IsConnected)
+            throw new InvalidOperationException("Pipe is not connected");
+
+        var message = PipeMessage.Create("connection_toggle_request", new { connection_id = connectionId, enabled });
+        await _client.SendAsync(message);
     }
 
     private async Task ListenLoopAsync(CancellationToken ct)
@@ -351,6 +458,31 @@ public sealed class PipeListener : IDisposable
                 await _client.ConnectAsync(ct);
                 OnStatusChanged?.Invoke("Connected");
                 backoffMs = 1000; // Reset backoff on successful connection
+
+                // Push saved LLM settings to the Python server on every (re)connection
+                try
+                {
+                    var saved = SettingsStore.Load();
+                    if (!string.IsNullOrEmpty(saved.Model))
+                    {
+                        await UpdateSettingsAsync(saved.Provider, saved.ApiKey, saved.Model, saved.BaseUrl);
+                    }
+                }
+                catch { /* non-fatal: server will use its own persisted/env settings */ }
+
+                // Auto-request tool list so tools are available immediately
+                try
+                {
+                    await RequestToolListAsync();
+                }
+                catch { /* non-fatal */ }
+
+                // Auto-request connection list
+                try
+                {
+                    await RequestConnectionListAsync();
+                }
+                catch { /* non-fatal */ }
 
                 await ReadLoopAsync(ct);
             }
@@ -429,6 +561,10 @@ public sealed class PipeListener : IDisposable
                     await HandleApprovalRequestAsync(message);
                     break;
 
+                case "mapping_request":
+                    await HandleMappingRequestAsync(message);
+                    break;
+
                 case "workflow_suggestion":
                     OnWorkflowSuggestion?.Invoke(message.Payload);
                     break;
@@ -463,6 +599,38 @@ public sealed class PipeListener : IDisposable
 
                 case "settings_response":
                     OnSettingsResponse?.Invoke(message.Payload);
+                    break;
+
+                case "settings_update_response":
+                    OnSettingsUpdateResponse?.Invoke(message.Payload);
+                    break;
+
+                case "connection_list_response":
+                    OnConnectionListResponse?.Invoke(message.Payload);
+                    break;
+
+                case "connection_add_response":
+                    OnConnectionAddResponse?.Invoke(message.Payload);
+                    break;
+
+                case "connection_update_response":
+                    OnConnectionUpdateResponse?.Invoke(message.Payload);
+                    break;
+
+                case "connection_delete_response":
+                    OnConnectionDeleteResponse?.Invoke(message.Payload);
+                    break;
+
+                case "connection_test_response":
+                    OnConnectionTestResponse?.Invoke(message.Payload);
+                    break;
+
+                case "connection_toggle_response":
+                    OnConnectionToggleResponse?.Invoke(message.Payload);
+                    break;
+
+                case "connection_status_event":
+                    OnConnectionStatusEvent?.Invoke(message.Payload);
                     break;
 
                 case "screenshot_request":
@@ -537,6 +705,35 @@ public sealed class PipeListener : IDisposable
         var response = PipeMessage.Create("approval_response", new
         {
             approved,
+            call_id = request.CallId,
+        });
+
+        if (_client != null)
+            await _client.SendAsync(response);
+    }
+
+    private async Task HandleMappingRequestAsync(PipeMessage message)
+    {
+        var payload = message.Payload;
+        var request = new MappingRequest
+        {
+            CallId = payload.TryGetProperty("call_id", out var callIdEl) ? callIdEl.GetString() ?? "" : "",
+            MappingType = payload.TryGetProperty("mapping_type", out var typeEl) ? typeEl.GetString() ?? "" : "",
+            RecordedValue = payload.TryGetProperty("recorded_value", out var valEl) ? valEl.GetString() ?? "" : "",
+            AvailableOptions = payload.TryGetProperty("available_options", out var optEl) ? optEl : default,
+            BestMatch = payload.TryGetProperty("best_match", out var matchEl) ? matchEl : default,
+        };
+
+        var mappingResponse = new MappingResponse { Action = "cancel" };
+        if (OnMappingRequest != null)
+        {
+            mappingResponse = await OnMappingRequest(request);
+        }
+
+        var response = PipeMessage.Create("mapping_response", new
+        {
+            action = mappingResponse.Action,
+            selected_option = mappingResponse.SelectedOption,
             call_id = request.CallId,
         });
 
@@ -674,4 +871,7 @@ public class WorkflowStep
     public string OnFailure { get; set; } = "stop";
     public int MaxRetries { get; set; } = 0;
     public int? TimeoutMs { get; set; }
+    public Dictionary<string, object?>? Snapshot { get; set; }
+    public string SourceType { get; set; } = "tool";
+    public string SourceAdapter { get; set; } = "";
 }

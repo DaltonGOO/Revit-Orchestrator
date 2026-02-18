@@ -24,7 +24,8 @@ public sealed class App : IExternalApplication
     internal PipeListener PipeListener { get; private set; } = null!;
     internal ExternalEvent? ExternalEvent { get; private set; }
     internal ActionRecorder? ActionRecorder { get; private set; }
-    internal UIApplication? UiApplication { get; private set; }
+    internal UIApplication? UiApplication { get; set; }
+    internal PythonProcessManager? PythonProcess { get; private set; }
 
     private static readonly DockablePaneId ChatPaneId =
         new(new Guid("B1E2F3A4-C5D6-7890-ABCD-EF1234567890"));
@@ -69,7 +70,23 @@ public sealed class App : IExternalApplication
         buttonData.ToolTip = "Show or hide the Revit Orchestrator chat panel";
         panel.AddItem(buttonData);
 
-        // Start listening for pipe connections
+        // Auto-start the Python orchestrator process
+        var (pythonPath, workDir) = PythonProcessManager.ResolvePaths();
+        if (pythonPath != null && workDir != null)
+        {
+            PythonProcess = new PythonProcessManager(pythonPath, workDir);
+            PythonProcess.OnLogMessage += msg => System.Diagnostics.Debug.WriteLine($"[Orchestrator] {msg}");
+            PythonProcess.OnStatusChanged += status => System.Diagnostics.Debug.WriteLine($"[Orchestrator] Status: {status}");
+            PythonProcess.Start();
+        }
+        else
+        {
+            System.Diagnostics.Debug.WriteLine(
+                "[Orchestrator] Python server not found. " +
+                "Check orchestrator-startup.log next to the DLL for details.");
+        }
+
+        // Start listening for pipe connections (has its own reconnect loop)
         PipeListener.Start();
 
         return Result.Succeeded;
@@ -80,6 +97,7 @@ public sealed class App : IExternalApplication
         ActionRecorder?.Dispose();
         PipeListener?.Stop();
         PipeListener?.Dispose();
+        PythonProcess?.Dispose();
         Instance = null;
         return Result.Succeeded;
     }
@@ -102,6 +120,46 @@ public sealed class App : IExternalApplication
 
     private void WirePipeListenerCallbacks()
     {
+        // Wire approval dialog
+        PipeListener.OnApprovalRequest = async (request) =>
+        {
+            var tcs = new TaskCompletionSource<bool>();
+            RunOnRevitThread(_ =>
+            {
+                try
+                {
+                    var dialog = new UI.ApprovalDialog(request);
+                    dialog.ShowDialog();
+                    tcs.TrySetResult(dialog.IsApproved);
+                }
+                catch
+                {
+                    tcs.TrySetResult(false);
+                }
+            });
+            return await tcs.Task;
+        };
+
+        // Wire mapping dialog for reconciliation
+        PipeListener.OnMappingRequest = async (request) =>
+        {
+            var tcs = new TaskCompletionSource<MappingResponse>();
+            RunOnRevitThread(_ =>
+            {
+                try
+                {
+                    var dialog = new UI.MappingDialog(request);
+                    dialog.ShowDialog();
+                    tcs.TrySetResult(dialog.Result);
+                }
+                catch
+                {
+                    tcs.TrySetResult(new MappingResponse { Action = "cancel" });
+                }
+            });
+            return await tcs.Task;
+        };
+
         PipeListener.GetRunContext = () =>
         {
             try
@@ -192,6 +250,10 @@ public sealed class App : IExternalApplication
         CommandDispatcher.Register(new GetElementInfoCommand());
         CommandDispatcher.Register(new CreateWallCommand());
         CommandDispatcher.Register(new CreateElementCommand());
+        CommandDispatcher.Register(new PlaceFamilyInstanceCommand());
+        CommandDispatcher.Register(new ResolveSystemTypeCommand());
+        CommandDispatcher.Register(new ResolveFamilyTypeCommand());
+        CommandDispatcher.Register(new ResolveHostElementCommand());
         CommandDispatcher.Register(new RunDynamoGraphCommand());
         CommandDispatcher.Register(new RunPythonScriptCommand());
     }

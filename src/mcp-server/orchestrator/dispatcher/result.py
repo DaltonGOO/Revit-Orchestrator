@@ -15,6 +15,7 @@ class ToolResult:
     error_code: str | None = None
     error_message: str | None = None
     duration_ms: int = 0
+    stage: str = ""
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to a dict suitable for the pipe protocol payload."""
@@ -29,6 +30,8 @@ class ToolResult:
                 "code": self.error_code,
                 "message": self.error_message or "",
             }
+        if self.stage:
+            result["stage"] = self.stage
         return result
 
     @classmethod
@@ -38,7 +41,7 @@ class ToolResult:
 
     @classmethod
     def fail(
-        cls, code: str, message: str, duration_ms: int = 0
+        cls, code: str, message: str, duration_ms: int = 0, stage: str = ""
     ) -> ToolResult:
         """Create a failed result."""
         return cls(
@@ -46,4 +49,5 @@ class ToolResult:
             error_code=code,
             error_message=message,
             duration_ms=duration_ms,
+            stage=stage,
         )

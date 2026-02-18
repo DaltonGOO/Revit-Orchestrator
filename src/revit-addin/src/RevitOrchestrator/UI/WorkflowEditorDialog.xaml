@@ -66,9 +66,43 @@
                                                Foreground="#666"
                                                VerticalAlignment="Center" />
                                     <StackPanel Grid.Column="1">
-                                        <TextBlock Text="{Binding ToolName}"
-                                                   FontWeight="SemiBold"
-                                                   FontSize="12" />
+                                        <StackPanel Orientation="Horizontal">
+                                            <TextBlock Text="{Binding ToolName}"
+                                                       FontWeight="SemiBold"
+                                                       FontSize="12" />
+                                            <!-- Type badge (recorded/composed/dynamo/pyrevit/revit) -->
+                                            <Border CornerRadius="3"
+                                                    Padding="4,1"
+                                                    Margin="6,0,0,0"
+                                                    VerticalAlignment="Center">
+                                                <Border.Style>
+                                                    <Style TargetType="Border">
+                                                        <Setter Property="Background" Value="#e0e0e0" />
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding BadgeText}" Value="dynamo">
+                                                                <Setter Property="Background" Value="#e3f2fd" />
+                                                            </DataTrigger>
+                                                            <DataTrigger Binding="{Binding BadgeText}" Value="pyrevit">
+                                                                <Setter Property="Background" Value="#fff3e0" />
+                                                            </DataTrigger>
+                                                            <DataTrigger Binding="{Binding BadgeText}" Value="revit">
+                                                                <Setter Property="Background" Value="#e8f5e9" />
+                                                            </DataTrigger>
+                                                            <DataTrigger Binding="{Binding BadgeText}" Value="recorded">
+                                                                <Setter Property="Background" Value="#FFEBEE" />
+                                                            </DataTrigger>
+                                                            <DataTrigger Binding="{Binding BadgeText}" Value="composed">
+                                                                <Setter Property="Background" Value="#F3E5F5" />
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </Border.Style>
+                                                <TextBlock Text="{Binding BadgeText}"
+                                                           FontSize="8"
+                                                           FontWeight="SemiBold"
+                                                           Foreground="#555" />
+                                            </Border>
+                                        </StackPanel>
                                         <TextBlock Text="{Binding ArgsSummary}"
                                                    FontSize="10"
                                                    Foreground="#888"
@@ -312,6 +346,30 @@
                         <CheckBox Content="changes_view" IsChecked="{Binding SideEffect_View}" FontSize="11" Margin="0,1" />
                         <CheckBox Content="file_io" IsChecked="{Binding SideEffect_FileIo}" FontSize="11" Margin="0,1" />
                     </StackPanel>
+
+                    <!-- Auto-derived contract preview -->
+                    <Border CornerRadius="4" Padding="8" Margin="0,0,0,8" Background="#F3E5F5"
+                            Visibility="{Binding HasDerivedContract, Converter={StaticResource BoolToVisibility}}">
+                        <StackPanel>
+                            <TextBlock Text="Auto-derived from steps" FontWeight="SemiBold" FontSize="12"
+                                       Foreground="#7B1FA2" Margin="0,0,0,4" />
+                            <TextBlock Text="These values are inferred from the tools used in your steps."
+                                       FontSize="10" Foreground="#666" TextWrapping="Wrap" Margin="0,0,0,6" />
+                            <TextBlock FontSize="10">
+                                <Run Text="Side Effects: " FontWeight="SemiBold" Foreground="#666" />
+                                <Run Text="{Binding DerivedSideEffectsText, Mode=OneWay}" />
+                            </TextBlock>
+                            <TextBlock FontSize="10" Margin="0,2,0,0">
+                                <Run Text="Permission Mode: " FontWeight="SemiBold" Foreground="#666" />
+                                <Run Text="{Binding DerivedPermissionMode, Mode=OneWay}" />
+                            </TextBlock>
+                            <TextBlock FontSize="10" Margin="0,2,0,0"
+                                       Visibility="{Binding DerivedPreconditionsText, Converter={StaticResource NullToCollapsed}}">
+                                <Run Text="Preconditions: " FontWeight="SemiBold" Foreground="#666" />
+                                <Run Text="{Binding DerivedPreconditionsText, Mode=OneWay}" />
+                            </TextBlock>
+                        </StackPanel>
+                    </Border>
 
                     <!-- Test Results (shown after test) -->
                     <Border CornerRadius="4"

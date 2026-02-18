@@ -28,6 +28,8 @@ public sealed class ToolEditorViewModel : INotifyPropertyChanged
     public string? Version { get; set; }
     public string? Author { get; set; }
     public string TagsText { get; set; } = "";
+    public string Visibility { get; set; } = "user";
+    public static string[] AvailableVisibilities { get; } = { "user", "llm-only", "internal" };
 
     // Execution modes
     public bool SupportsHeadless { get; set; } = true;
@@ -88,6 +90,8 @@ public sealed class ToolEditorViewModel : INotifyPropertyChanged
             Description = definition.TryGetProperty("description", out var d) ? d.GetString() ?? "" : "",
             Version = definition.TryGetProperty("version", out var v) ? v.GetString() : null,
             Author = definition.TryGetProperty("author", out var auth) ? auth.GetString() : null,
+            Visibility = definition.TryGetProperty("visibility", out var visEl)
+                ? visEl.GetString() ?? "user" : "user",
         };
 
         // Tags
@@ -207,6 +211,7 @@ public sealed class ToolEditorViewModel : INotifyPropertyChanged
             ["name"] = ToolName,
             ["adapter"] = Adapter,
             ["description"] = Description,
+            ["visibility"] = Visibility,
         };
 
         // Version, author, tags

@@ -1,0 +1,45 @@
+{
+  "name": "revit.resolve_system_type",
+  "adapter": "revit",
+  "visibility": "internal",
+  "description": "Lists available piping or mechanical system types in the active document and finds the best match for a recorded system type name. Used internally by the reconciliation mapper.",
+  "version": "1.0.0",
+  "tags": ["mep", "reconciliation", "internal"],
+  "permissions": {
+    "mode": "read",
+    "categories": [],
+    "approval_required": false
+  },
+  "side_effects": [],
+  "preconditions": [
+    { "check": "document_open" }
+  ],
+  "parameters": {
+    "type": "object",
+    "properties": {
+      "kind": {
+        "type": "string",
+        "enum": ["piping", "mechanical"],
+        "description": "The kind of system type to resolve"
+      },
+      "system_type_name": {
+        "type": "string",
+        "description": "The recorded system type name to match"
+      },
+      "mep_system_classification": {
+        "type": "string",
+        "description": "The recorded MEP system classification as fallback"
+      }
+    },
+    "required": ["kind"]
+  },
+  "returns": {
+    "type": "object",
+    "properties": {
+      "available": { "type": "array" },
+      "best_match": { "type": "object" },
+      "exact_match": { "type": "boolean" },
+      "kind": { "type": "string" }
+    }
+  }
+}

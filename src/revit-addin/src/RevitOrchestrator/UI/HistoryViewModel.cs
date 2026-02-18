@@ -27,6 +27,9 @@ public sealed class HistoryViewModel : INotifyPropertyChanged
         ClearHistoryCommand = new RelayCommand(OnClearHistory, () => Events.Count > 0);
         SaveAsWorkflowCommand = new RelayCommand(OnSaveAsWorkflow, () => SelectedEvents.Any());
         ToggleExpandCommand = new RelayCommand<ExecutionEvent>(OnToggleExpand);
+        CopyErrorCommand = new RelayCommand<ExecutionEvent>(OnCopyError);
+        CopyRunDetailsCommand = new RelayCommand<ExecutionEvent>(OnCopyRunDetails);
+        OpenInDynamoCommand = new RelayCommand<ExecutionEvent>(OnOpenInDynamo, CanOpenInDynamo);
 
         // Subscribe to pipe listener events
         if (App.Instance?.PipeListener is { } listener)
@@ -113,6 +116,9 @@ public sealed class HistoryViewModel : INotifyPropertyChanged
     public ICommand ClearHistoryCommand { get; }
     public ICommand SaveAsWorkflowCommand { get; }
     public ICommand ToggleExpandCommand { get; }
+    public ICommand CopyErrorCommand { get; }
+    public ICommand CopyRunDetailsCommand { get; }
+    public ICommand OpenInDynamoCommand { get; }
 
     /// <summary>
     /// Handle an execution event from the pipe.
@@ -235,6 +241,55 @@ public sealed class HistoryViewModel : INotifyPropertyChanged
     {
         if (evt is null) return;
         evt.IsExpanded = !evt.IsExpanded;
+    }
+
+    private void OnCopyError(ExecutionEvent? evt)
+    {
+        if (evt is null || string.IsNullOrEmpty(evt.ErrorMessage)) return;
+        try
+        {
+            System.Windows.Clipboard.SetText(evt.ErrorMessage);
+            StatusText = "Error copied to clipboard";
+        }
+        catch { StatusText = "Failed to copy to clipboard"; }
+    }
+
+    private void OnCopyRunDetails(ExecutionEvent? evt)
+    {
+        if (evt is null) return;
+        try
+        {
+            System.Windows.Clipboard.SetText(evt.RunDetailsText);
+            StatusText = "Run details copied to clipboard";
+        }
+        catch { StatusText = "Failed to copy to clipboard"; }
+    }
+
+    private bool CanOpenInDynamo(ExecutionEvent? evt)
+        => evt?.IsDynamoTool == true && !string.IsNullOrEmpty(evt.GraphPath);
+
+    private void OnOpenInDynamo(ExecutionEvent? evt)
+    {
+        if (evt == null) return;
+        var graphPath = evt.GraphPath;
+        if (string.IsNullOrEmpty(graphPath)) return;
+
+        StatusText = $"Opening in Dynamo: {System.IO.Path.GetFileName(graphPath)}...";
+
+        App.Instance?.RunOnRevitThread(uiApp =>
+        {
+            try
+            {
+                Commands.RunDynamoGraphCommand.OpenInDynamoUI(graphPath, uiApp);
+                _dispatcher.Invoke(() => StatusText = $"Opened in Dynamo: {System.IO.Path.GetFileName(graphPath)}");
+            }
+            catch (Exception ex)
+            {
+                var msg = ex is System.Reflection.TargetInvocationException tie
+                    ? (tie.InnerException?.Message ?? ex.Message) : ex.Message;
+                _dispatcher.Invoke(() => StatusText = $"Failed to open in Dynamo: {msg}");
+            }
+        });
     }
 
     private async void OnSaveAsWorkflow()

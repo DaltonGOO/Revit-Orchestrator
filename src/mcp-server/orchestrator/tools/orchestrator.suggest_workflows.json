@@ -1,6 +1,7 @@
 {
   "name": "orchestrator.suggest_workflows",
   "adapter": "workflow",
+  "visibility": "llm-only",
   "description": "Analyzes execution history to detect recurring tool-call patterns and suggests named workflows for them.",
   "version": "1.0.0",
   "tags": ["observability", "workflow", "suggestions"],

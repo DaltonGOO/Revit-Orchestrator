@@ -11,7 +11,7 @@ from typing import Any
 
 from ..registry.registry import ToolRegistry
 from ..registry.schema_validator import (
-    validate_tool_args,
+    validate_tool_args_detailed,
     get_tool_permissions,
     get_tool_side_effects,
 )
@@ -48,6 +48,7 @@ class Dispatcher:
         args: dict[str, Any],
         dry_run: bool = False,
         execution_mode: str = "headless",
+        definition: dict[str, Any] | None = None,
     ) -> ToolResult:
         """Dispatch a tool call to the appropriate adapter/handler.
 
@@ -63,21 +64,34 @@ class Dispatcher:
         """
         start = time.perf_counter_ns()
 
-        # 1. Look up tool
-        definition = self._registry.get(tool_name)
+        # 1. Look up tool (use inline definition if provided)
         if definition is None:
-            return ToolResult.fail("TOOL_NOT_FOUND", f"No tool registered: {tool_name}")
+            definition = self._registry.get(tool_name)
+            if definition is None:
+                return ToolResult.fail(
+                    "TOOL_NOT_FOUND", f"No tool registered: {tool_name}",
+                    stage="preflight_validation",
+                )
+
+        # 1b. Coerce None/null args to empty dict — callers may pass None when
+        # no arguments are supplied (e.g. Dynamo tools with zero inputs).
+        if args is None:
+            args = {}
 
         # 2. Coerce string-encoded arrays/objects to native types
         args = _coerce_args(args, definition["parameters"])
 
         # 3. Validate args
-        errors = validate_tool_args(args, definition["parameters"])
-        if errors:
-            return ToolResult.fail(
+        validation_errors = validate_tool_args_detailed(args, definition["parameters"])
+        if validation_errors:
+            messages = [e["message"] for e in validation_errors]
+            result = ToolResult.fail(
                 "SCHEMA_VALIDATION_FAILED",
-                f"Argument validation failed: {'; '.join(errors)}",
+                f"Argument validation failed: {'; '.join(messages)}",
+                stage="preflight_validation",
             )
+            result.data = {"validation_errors": validation_errors}
+            return result
 
         # 4. Check preconditions
         if self._precondition_checker is not None:
@@ -86,6 +100,7 @@ class Dispatcher:
                 return ToolResult.fail(
                     "PRECONDITION_FAILED",
                     f"Preconditions not met: {'; '.join(precond_failures)}",
+                    stage="preflight_validation",
                 )
 
         # 5. Dry-run shortcut
@@ -112,6 +127,7 @@ class Dispatcher:
                     return ToolResult.fail(
                         "USER_DENIED",
                         f"User denied execution of {tool_name}",
+                        stage="preflight_validation",
                     )
 
         # 7. Determine adapter
@@ -121,26 +137,38 @@ class Dispatcher:
             return ToolResult.fail(
                 "ADAPTER_NOT_AVAILABLE",
                 f"Adapter '{adapter_name}' is not available",
+                stage="dispatch",
             )
 
         # 8. Load handler and execute
         try:
             handler = self._load_handler(tool_name)
-            # Pass execution_mode to revit adapter (others ignore it via **kwargs or positional)
+            # Pass execution_mode and definition to adapter; fall back gracefully
+            # if the adapter doesn't accept the newer kwargs.
             try:
                 result = await adapter.execute(
-                    tool_name, args, handler, execution_mode=execution_mode
+                    tool_name, args, handler,
+                    execution_mode=execution_mode, definition=definition,
                 )
             except TypeError:
-                # Adapter doesn't accept execution_mode — call without it
-                result = await adapter.execute(tool_name, args, handler)
+                try:
+                    result = await adapter.execute(
+                        tool_name, args, handler, execution_mode=execution_mode
+                    )
+                except TypeError:
+                    result = await adapter.execute(tool_name, args, handler)
             elapsed_ms = int((time.perf_counter_ns() - start) / 1_000_000)
             result.duration_ms = elapsed_ms
+            if not result.stage:
+                result.stage = "adapter_execution"
             return result
         except Exception as e:
             elapsed_ms = int((time.perf_counter_ns() - start) / 1_000_000)
             logger.exception("Handler error for tool %s", tool_name)
-            return ToolResult.fail("HANDLER_ERROR", str(e), duration_ms=elapsed_ms)
+            return ToolResult.fail(
+                "HANDLER_ERROR", str(e),
+                duration_ms=elapsed_ms, stage="adapter_execution",
+            )
 
     def _load_handler(self, tool_name: str) -> Any:
         """Load the handler module for a tool, or return None if not found.
@@ -176,25 +204,42 @@ class Dispatcher:
 
 
 def _coerce_args(
-    args: dict[str, Any], parameters_schema: dict[str, Any]
+    args: dict[str, Any] | None, parameters_schema: dict[str, Any]
 ) -> dict[str, Any]:
-    """Coerce string-encoded JSON values to their expected types.
+    """Coerce argument values to match the schema's expected types.
 
-    Workflow recordings previously serialised arrays as strings
-    (e.g. ``"[1,2,3]"`` instead of ``[1,2,3]``).  This helper parses
-    them back before schema validation so existing saved workflows
-    continue to work.
+    Handles two cases:
+    1. **Null → empty container**: If a property is declared as ``type: "object"``
+       or ``type: "array"`` and the caller sends ``None``/``null``, coerce to
+       ``{}`` or ``[]`` respectively.  This is the common case for Dynamo tools
+       with zero inputs.
+    2. **String → parsed JSON**: Workflow recordings previously serialised arrays
+       as strings (e.g. ``"[1,2,3]"`` instead of ``[1,2,3]``).  Parse them back
+       before schema validation so existing saved workflows continue to work.
     """
+    if args is None:
+        return {}
+
     properties = parameters_schema.get("properties", {})
     if not properties:
         return args
 
     coerced = dict(args)
     for key, value in coerced.items():
-        if not isinstance(value, str) or key not in properties:
+        if key not in properties:
             continue
         expected = properties[key].get("type")
-        if expected in ("array", "object") and value.lstrip().startswith(("[", "{")):
+
+        # Coerce null/None to empty container for object/array properties
+        if value is None:
+            if expected == "object":
+                coerced[key] = {}
+            elif expected == "array":
+                coerced[key] = []
+            continue
+
+        # Coerce string-encoded JSON to native types
+        if isinstance(value, str) and expected in ("array", "object") and value.lstrip().startswith(("[", "{")):
             try:
                 parsed = json.loads(value)
                 if (expected == "array" and isinstance(parsed, list)) or (

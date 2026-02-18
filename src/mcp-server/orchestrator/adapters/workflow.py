@@ -21,9 +21,10 @@ class TrackingDispatcher:
         self.all_deleted: list[int] = []
         self.tool_results: list[ToolResult] = []
 
-    async def dispatch(self, tool_name: str, args: dict[str, Any]) -> ToolResult:
+    async def dispatch(self, tool_name: str, args: dict[str, Any],
+                       definition: dict[str, Any] | None = None) -> ToolResult:
         """Dispatch a tool call and track its model changes."""
-        result = await self._dispatcher.dispatch(tool_name, args)
+        result = await self._dispatcher.dispatch(tool_name, args, definition=definition)
         self.tool_results.append(result)
 
         # Extract and aggregate model_changes from the result
@@ -59,6 +60,7 @@ class WorkflowAdapter(BaseAdapter):
         self._dispatcher: Any | None = None
         self._registry = registry
         self._audit_log: Any | None = None
+        self._pipe_connection: Any | None = None
 
     @property
     def name(self) -> str:
@@ -76,8 +78,14 @@ class WorkflowAdapter(BaseAdapter):
         """Set the audit log for workflow event tracking."""
         self._audit_log = audit_log
 
+    def set_pipe_connection(self, pipe_connection: Any) -> None:
+        """Set the pipe connection for reconciliation UI prompts."""
+        self._pipe_connection = pipe_connection
+
     async def execute(
-        self, tool_name: str, args: dict[str, Any], handler: Any
+        self, tool_name: str, args: dict[str, Any], handler: Any,
+        execution_mode: str = "headless",
+        definition: dict[str, Any] | None = None,
     ) -> ToolResult:
         """Execute a workflow tool.
 
@@ -90,11 +98,19 @@ class WorkflowAdapter(BaseAdapter):
                 "Workflow dispatcher not configured",
             )
 
-        # Check if this tool has a declarative workflow definition
+        # Use provided definition (snapshot) if it has workflow steps
+        if definition and "workflow" in definition:
+            workflow_def = definition["workflow"]
+            if "steps" in workflow_def:
+                return await self._execute_declarative(
+                    tool_name, args, workflow_def
+                )
+
+        # Check if this tool has a declarative workflow definition in the registry
         if self._registry is not None:
-            definition = self._registry.get(tool_name)
-            if definition and "workflow" in definition:
-                workflow_def = definition["workflow"]
+            reg_def = self._registry.get(tool_name)
+            if reg_def and "workflow" in reg_def:
+                workflow_def = reg_def["workflow"]
                 if "steps" in workflow_def:
                     return await self._execute_declarative(
                         tool_name, args, workflow_def
@@ -116,8 +132,18 @@ class WorkflowAdapter(BaseAdapter):
         """Execute a declarative workflow using the WorkflowEngine."""
         try:
             from ..workflow.engine import WorkflowEngine
+            from ..reconciliation.mapper import ReconciliationMapper
 
-            engine = WorkflowEngine(self._dispatcher, audit_log=self._audit_log)
+            # Construct reconciler if pipe connection is available
+            reconciler = None
+            if self._dispatcher and self._pipe_connection:
+                reconciler = ReconciliationMapper(self._dispatcher, self._pipe_connection)
+
+            engine = WorkflowEngine(
+                self._dispatcher,
+                audit_log=self._audit_log,
+                reconciler=reconciler,
+            )
             wf_result = await engine.execute(workflow_def, input_args=args)
             return wf_result.to_tool_result()
         except Exception as e:

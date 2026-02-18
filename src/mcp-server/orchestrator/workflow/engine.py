@@ -18,7 +18,8 @@ class WorkflowEngine:
     """Executes declarative workflows defined as sequences of tool calls.
 
     Supports parameter bindings between steps, guard conditions,
-    per-step failure handling (stop/skip/retry), and timeouts.
+    per-step failure handling (stop/skip/retry), timeouts, and
+    optional reconciliation for type mismatches during replay.
     """
 
     def __init__(
@@ -26,10 +27,12 @@ class WorkflowEngine:
         dispatcher: Any,
         audit_log: Any | None = None,
         execution_logger: Any | None = None,
+        reconciler: Any | None = None,
     ) -> None:
         self._dispatcher = dispatcher
         self._audit_log = audit_log
         self._execution_logger = execution_logger
+        self._reconciler = reconciler
 
     async def execute(
         self,
@@ -61,6 +64,7 @@ class WorkflowEngine:
             on_failure = step.get("on_failure", "stop")
             max_retries = step.get("max_retries", 0)
             timeout_ms = step.get("timeout_ms")
+            snapshot = step.get("snapshot")  # None for legacy workflows
 
             # Evaluate guard
             if guard:
@@ -98,6 +102,34 @@ class WorkflowEngine:
                 if v is not None:
                     final_args[k] = v
 
+            # Reconcile step args if reconciler is available and tool needs it
+            _RECONCILABLE_TOOLS = {"revit.create_element", "revit.place_family"}
+            if self._reconciler and tool_name in _RECONCILABLE_TOOLS:
+                try:
+                    reconciled_args = await self._reconciler.reconcile_step(
+                        {"tool": tool_name, "args": final_args}
+                    )
+                    if reconciled_args is None:
+                        # User cancelled mapping
+                        result = ToolResult.fail(
+                            "USER_CANCELLED_MAPPING",
+                            f"User cancelled type reconciliation for step '{step_id}'",
+                        )
+                        context.record_result(step_id, result)
+                        if on_failure == "stop":
+                            overall_success = False
+                            break
+                        elif on_failure == "skip":
+                            context.skipped_steps.append(step_id)
+                            continue
+                        continue
+                    final_args = reconciled_args
+                except Exception as e:
+                    logger.warning(
+                        "Step %s: reconciliation error (proceeding with original args): %s",
+                        step_id, e,
+                    )
+
             # Log step start if execution logger is available
             event_id: str | None = None
             if self._execution_logger:
@@ -105,7 +137,8 @@ class WorkflowEngine:
 
             # Execute with retries
             result = await self._execute_step(
-                step_id, tool_name, final_args, timeout_ms, max_retries
+                step_id, tool_name, final_args, timeout_ms, max_retries,
+                snapshot=snapshot,
             )
 
             # Log step completion/failure
@@ -175,6 +208,7 @@ class WorkflowEngine:
         args: dict[str, Any],
         timeout_ms: int | None,
         max_retries: int,
+        snapshot: dict[str, Any] | None = None,
     ) -> ToolResult:
         """Execute a single step with optional timeout and retries."""
         attempts = 0
@@ -186,11 +220,15 @@ class WorkflowEngine:
                 if timeout_ms:
                     timeout_s = timeout_ms / 1000.0
                     last_result = await asyncio.wait_for(
-                        self._dispatcher.dispatch(tool_name, args),
+                        self._dispatcher.dispatch(
+                            tool_name, args, definition=snapshot
+                        ),
                         timeout=timeout_s,
                     )
                 else:
-                    last_result = await self._dispatcher.dispatch(tool_name, args)
+                    last_result = await self._dispatcher.dispatch(
+                        tool_name, args, definition=snapshot
+                    )
 
                 if last_result.success:
                     return last_result
