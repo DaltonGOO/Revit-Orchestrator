@@ -80,8 +80,18 @@ zip on a dev machine and copy it across:
 ```powershell
 # On the dev machine — produces dist\RevitOrchestrator-vYYYYMMDD-Revit2025.zip
 .\package.ps1 -RevitVersion 2025
+```
 
-# On the target machine — unzip, then:
+On the target machine: unzip, open the extracted folder, and **double-click
+`install.bat`**. It wraps `install.ps1` with `-ExecutionPolicy Bypass`, so it
+works on stock Windows without changing any policies or unblocking files.
+
+If you'd rather run the PowerShell script directly (e.g. from an existing
+PowerShell session), the file is downloaded from the internet so Windows
+blocks it by default — unblock first:
+
+```powershell
+Unblock-File .\install.ps1
 .\install.ps1 -RevitVersion 2025
 ```
 
@@ -89,8 +99,9 @@ zip on a dev machine and copy it across:
 `orchestrator.exe`, and the `tools/` folder (so the sample C#/pyRevit/Dynamo
 tools work out of the box). `install.ps1` copies the bundle into
 `%APPDATA%\Autodesk\Revit\Addins\<RevitVersion>\` and writes the `.addin`
-manifest. After install, set your `ANTHROPIC_API_KEY` (or `OPENAI_API_KEY`) and
-launch Revit.
+manifest. After install, open Revit and configure your API key from the
+Orchestrator panel's Settings dialog (or set `ANTHROPIC_API_KEY` /
+`OPENAI_API_KEY` as a User env var).
 
 ## Adding a tool
 

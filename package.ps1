@@ -171,9 +171,11 @@ if (Test-Path $ToolsSrc) {
     Write-Host "  Copied sample tool sources" -ForegroundColor Gray
 }
 
-# Copy the install script
+# Copy the install scripts (.bat wraps .ps1 with -ExecutionPolicy Bypass
+# so users can double-click without hitting unsigned-script errors)
 Copy-Item (Join-Path $RepoRoot "install.ps1") -Destination $StageDir -Force
-Write-Host "  Included install.ps1" -ForegroundColor Gray
+Copy-Item (Join-Path $RepoRoot "install.bat") -Destination $StageDir -Force
+Write-Host "  Included install.bat + install.ps1" -ForegroundColor Gray
 
 # --- Step 5: Create zip ---
 Write-Host "[5/5] Creating zip..." -ForegroundColor Yellow
@@ -200,6 +202,6 @@ Write-Host "  Contents: C# DLLs + compiled Python exe (no source code)"
 Write-Host ""
 Write-Host "Send this zip to your tester. They should:" -ForegroundColor Cyan
 Write-Host "  1. Unzip anywhere"
-Write-Host "  2. Right-click install.ps1 -> Run with PowerShell"
+Write-Host "  2. Double-click install.bat (it bypasses the unsigned-script block)"
 Write-Host "  3. Open Revit $RevitVersion, click the Orchestrator panel,"
 Write-Host "     open Settings (gear icon) and paste their API key"
