@@ -40,7 +40,7 @@ A friendlier overview of the architecture lives on the [project site](https://da
 - Python 3.11+ with pip
 - .NET 8 SDK
 - Autodesk Revit 2025 or 2026
-- An API key for Claude (Anthropic) or OpenAI
+- An API key for Claude (Anthropic) or OpenAI — or a local OpenAI-compatible server (Ollama, LM Studio, llama.cpp)
 
 ### Install
 
@@ -66,6 +66,12 @@ set ANTHROPIC_API_KEY=sk-ant-...
 # or OpenAI
 set OPENAI_API_KEY=sk-...
 set ORCHESTRATOR_LLM_PROVIDER=openai
+
+# or a local model via an OpenAI-compatible server (Ollama, LM Studio, ...)
+set ORCHESTRATOR_LLM_PROVIDER=openai
+set OPENAI_BASE_URL=http://localhost:11434/v1
+set OPENAI_MODEL=llama3.1
+set OPENAI_API_KEY=ollama        :: any non-empty string is fine
 ```
 
 ### Run
