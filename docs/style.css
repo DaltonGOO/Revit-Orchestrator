@@ -423,6 +423,23 @@ pre code {
   text-align: center;
 }
 .site-footer a { color: var(--ink-soft); }
+.site-footer .byline {
+  display: inline-flex;
+  align-items: center;
+  gap: .35em;
+  white-space: nowrap;
+}
+.site-footer .byline-mark {
+  width: 18px; height: 18px;
+  object-fit: contain;
+  vertical-align: middle;
+  opacity: .85;
+  transition: transform .35s ease-out, opacity .2s ease-out;
+}
+.site-footer .byline:hover .byline-mark {
+  opacity: 1;
+  transform: translateY(-2px) rotate(-6deg);
+}
 
 /* ---------- Animation primitives ---------- */
 .word {
