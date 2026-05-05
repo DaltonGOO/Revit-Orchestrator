@@ -10,14 +10,20 @@
     if (!el) return [];
     const text = (el.textContent || '').trim();
     el.textContent = '';
-    return text.split(/\s+/).map((w) => {
+    const words = text.split(/\s+/);
+    return words.map((w, i) => {
       const span = document.createElement('span');
       span.className = 'word';
-      span.textContent = w + ' ';
+      span.textContent = w;
       span.style.opacity = '0';
       span.style.transform = 'translateY(12px)';
       span.style.transition = 'opacity .5s ease-out, transform .5s ease-out';
       el.appendChild(span);
+      // Inter-word space lives outside the inline-block span so it
+      // doesn't get collapsed.
+      if (i < words.length - 1) {
+        el.appendChild(document.createTextNode(' '));
+      }
       return span;
     });
   }
