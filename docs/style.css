@@ -425,7 +425,15 @@ pre code {
 .site-footer a { color: var(--ink-soft); }
 
 /* ---------- Animation primitives ---------- */
-.word { display: inline-block; will-change: transform, opacity; }
+.word {
+  display: inline-block;
+  will-change: transform, opacity;
+  /* Manual word gap because adjacent inline-blocks otherwise eat the
+     whitespace between them in some browsers (esp. when the JS strips
+     the original whitespace out of the title). */
+  margin-right: 0.27em;
+}
+.word:last-child { margin-right: 0; }
 @media (prefers-reduced-motion: reduce) {
   .word { opacity: 1 !important; transform: none !important; }
   .title-underline { width: 100% !important; }
