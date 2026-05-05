@@ -1,0 +1,35 @@
+{
+  "name": "dynamo.update__parameter__value",
+  "adapter": "dynamo",
+  "description": "Dynamo graph: Update Parameter Value",
+  "parameters": {
+    "type": "object",
+    "properties": {
+      "graph_path": {
+        "type": "string",
+        "description": "Path to the Dynamo graph file",
+        "default": "${REPO_ROOT}\\tools\\dynamo\\Update Parameter Value.dyn"
+      },
+      "inputs": {
+        "type": "object",
+        "description": "Key-value pairs mapping Dynamo input node names to their values",
+        "additionalProperties": true
+      }
+    },
+    "required": [
+      "graph_path"
+    ]
+  },
+  "returns": {
+    "type": "object",
+    "properties": {
+      "outputs": {
+        "type": "object"
+      },
+      "message": {
+        "type": "string"
+      }
+    }
+  },
+  "examples": []
+}

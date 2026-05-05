@@ -224,26 +224,13 @@ public partial class SettingsDialog : Window
     {
         PipeNameText.Text = GetString(payload, "pipe_name");
 
-        // Storage
-        EventStorePathText.Text = GetString(payload, "event_store_path");
-        var sizeBytes = GetLong(payload, "event_store_size_bytes");
-        EventStoreSizeText.Text = FormatBytes(sizeBytes);
-        EpisodeCountText.Text = GetInt(payload, "episode_count").ToString("N0");
-        EventCountText.Text = GetInt(payload, "event_count").ToString("N0");
-        BlobStorePathText.Text = GetString(payload, "blob_store_dir");
-        BlobCountText.Text = GetInt(payload, "blob_count").ToString("N0");
+        // Logging
         AuditLogDirText.Text = GetString(payload, "audit_log_dir");
 
         // Tools
         ToolsDirText.Text = GetString(payload, "tools_dir");
         ToolCountText.Text = GetInt(payload, "tool_count").ToString();
         HotReloadText.Text = GetBool(payload, "watch_tools_dir") ? "Enabled" : "Disabled";
-
-        // ML
-        EmbeddingModelText.Text = GetString(payload, "embedding_model");
-        var mlAvailable = GetBool(payload, "ml_available");
-        MlAvailableText.Text = mlAvailable ? "Yes" : "No (install [ml] extras)";
-        MlAvailableText.Foreground = mlAvailable ? Brushes.Green : new SolidColorBrush(Color.FromRgb(0x99, 0x99, 0x99));
     }
 
     private void PopulateRevitInfo()

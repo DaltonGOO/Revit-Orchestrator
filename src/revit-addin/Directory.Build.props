@@ -23,4 +23,9 @@
     <RevitApiPath Condition="'$(RevitApiPath)' == '' AND Exists('C:\Program Files\Autodesk\Revit $(RevitVersion)')">C:\Program Files\Autodesk\Revit $(RevitVersion)</RevitApiPath>
     <RevitApiPath Condition="'$(RevitApiPath)' == ''">$(MSBuildThisFileDirectory)lib\Revit$(RevitVersion)</RevitApiPath>
   </PropertyGroup>
+
+  <!-- Dynamo for Revit references (bundled with Revit install) -->
+  <PropertyGroup>
+    <DynamoApiPath Condition="'$(DynamoApiPath)' == '' AND Exists('$(RevitApiPath)\AddIns\DynamoForRevit')">$(RevitApiPath)\AddIns\DynamoForRevit</DynamoApiPath>
+  </PropertyGroup>
 </Project>

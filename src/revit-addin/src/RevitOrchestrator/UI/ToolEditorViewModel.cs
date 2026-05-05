@@ -23,6 +23,14 @@ public sealed class ToolEditorViewModel : INotifyPropertyChanged
 
     // General metadata
     public string ToolName { get; set; } = "";
+
+    /// <summary>
+    /// The tool's name at load time. Used as the lookup key when saving so the
+    /// server can detect renames (ToolName changed) and migrate the JSON file
+    /// + registry entry under the new name.
+    /// </summary>
+    public string OriginalName { get; set; } = "";
+
     public string Adapter { get; set; } = "";
     public string Description { get; set; } = "";
     public string? Version { get; set; }
@@ -83,9 +91,11 @@ public sealed class ToolEditorViewModel : INotifyPropertyChanged
     /// </summary>
     public static ToolEditorViewModel FromJsonElement(JsonElement definition)
     {
+        var loadedName = definition.TryGetProperty("name", out var n) ? n.GetString() ?? "" : "";
         var vm = new ToolEditorViewModel
         {
-            ToolName = definition.TryGetProperty("name", out var n) ? n.GetString() ?? "" : "",
+            ToolName = loadedName,
+            OriginalName = loadedName,
             Adapter = definition.TryGetProperty("adapter", out var a) ? a.GetString() ?? "" : "",
             Description = definition.TryGetProperty("description", out var d) ? d.GetString() ?? "" : "",
             Version = definition.TryGetProperty("version", out var v) ? v.GetString() : null,

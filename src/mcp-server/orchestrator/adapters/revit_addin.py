@@ -33,8 +33,15 @@ class RevitAddinAdapter(BaseAdapter):
         args: dict[str, Any],
         handler: Any,
         execution_mode: str = "headless",
+        pipe_timeout: float | None = None,
     ) -> ToolResult:
-        """Send a tool call over the pipe and wait for the result."""
+        """Send a tool call over the pipe and wait for the result.
+
+        ``pipe_timeout`` overrides the connection's default for tools that
+        take longer than the standard ~30s — most importantly Dynamo runs,
+        which can legitimately run for minutes and would otherwise be
+        flagged as failed in History while still completing in Revit.
+        """
         if self._connection is None:
             return ToolResult.fail(
                 "ADAPTER_NOT_AVAILABLE",
@@ -43,7 +50,7 @@ class RevitAddinAdapter(BaseAdapter):
 
         message = make_tool_call(tool_name, args, execution_mode=execution_mode)
         try:
-            result = await self._connection.send_and_wait(message)
+            result = await self._connection.send_and_wait(message, timeout=pipe_timeout)
             payload = result.get("payload", {})
             if payload.get("success"):
                 return ToolResult.ok(

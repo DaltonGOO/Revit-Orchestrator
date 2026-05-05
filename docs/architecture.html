@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Architecture &middot; Revit Orchestrator</title>
+  <meta name="description" content="How Revit Orchestrator connects LLMs to Autodesk Revit through an MCP server, named-pipe IPC, and a multi-adapter command dispatcher.">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<nav class="site-nav">
+  <div class="nav-inner">
+    <a class="nav-brand" href="index.html">
+      <span class="brand-mark"></span>
+      <span>Revit Orchestrator</span>
+    </a>
+    <div class="nav-links">
+      <a href="index.html">Home</a>
+      <a href="architecture.html">Architecture</a>
+      <a href="getting-started.html">Getting started</a>
+      <a href="tool-developer-guide.html">Tool developer guide</a>
+      <a href="adding-tools.html">Adding tools</a>
+      <a href="mcp-connections.html">MCP connections</a>
+      <a href="https://github.com/DaltonGOO/Revit-Orchestrator" target="_blank" rel="noopener">GitHub &uarr;</a>
+    </div>
+  </div>
+</nav>
+
+<main class="container">
+  <article class="article">
+    <p class="crumbs"><a href="index.html">Home</a> &nbsp;/&nbsp; Architecture</p>
+
+    <h1>Architecture</h1>
+    <span class="title-underline"></span>
+
+    <h2>Overview</h2>
+    <p>
+      Revit Orchestrator connects LLMs to Autodesk Revit through an MCP
+      (Model Context Protocol) server. It enables AI assistants to read and
+      modify Revit models using a tool-based architecture.
+    </p>
+
+    <div class="arch-wrap" style="margin: 1rem 0 1.5rem;">
+      <svg viewBox="0 0 980 360" role="img" aria-label="Architecture diagram">
+        <defs>
+          <linearGradient id="g1" x1="0" x2="1" y1="0" y2="1">
+            <stop offset="0" stop-color="#3a7bd5"/>
+            <stop offset="1" stop-color="#00d2ff"/>
+          </linearGradient>
+          <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+            <path d="M0,0 L10,5 L0,10 z" fill="#3a7bd5"/>
+          </marker>
+        </defs>
+        <g font-family="Segoe UI, Arial, sans-serif">
+          <rect x="30" y="80" width="240" height="120" rx="14" fill="#fff" stroke="#3a7bd5" stroke-width="2"/>
+          <text x="150" y="120" text-anchor="middle" font-size="18" font-weight="700" fill="#1f2933">LLM Provider</text>
+          <text x="150" y="146" text-anchor="middle" font-size="13" fill="#52606d">Claude &middot; OpenAI</text>
+          <text x="150" y="172" text-anchor="middle" font-size="12" fill="#7a8794">MCP client (stdio)</text>
+          <rect x="370" y="60" width="240" height="160" rx="14" fill="url(#g1)"/>
+          <text x="490" y="100" text-anchor="middle" font-size="18" font-weight="700" fill="#fff">Python MCP Server</text>
+          <text x="490" y="124" text-anchor="middle" font-size="13" fill="#eaf6ff">Registry &middot; Dispatcher</text>
+          <text x="490" y="148" text-anchor="middle" font-size="13" fill="#eaf6ff">Schema validator</text>
+          <text x="490" y="172" text-anchor="middle" font-size="13" fill="#eaf6ff">Adapter routing</text>
+          <text x="490" y="196" text-anchor="middle" font-size="12" fill="#dff0fb">tools/*.json &uarr; hot reload</text>
+          <rect x="710" y="80" width="240" height="120" rx="14" fill="#fff" stroke="#3a7bd5" stroke-width="2"/>
+          <text x="830" y="120" text-anchor="middle" font-size="18" font-weight="700" fill="#1f2933">C# Revit Add-in</text>
+          <text x="830" y="146" text-anchor="middle" font-size="13" fill="#52606d">ExternalEvent bridge</text>
+          <text x="830" y="172" text-anchor="middle" font-size="12" fill="#7a8794">In-process Revit API</text>
+          <rect x="370" y="250" width="240" height="80" rx="10" fill="#eef3fa" stroke="#cfd8e3"/>
+          <text x="490" y="276" text-anchor="middle" font-size="13" font-weight="700" fill="#3a7bd5">Adapters</text>
+          <text x="490" y="298" text-anchor="middle" font-size="12" fill="#52606d">revit &middot; pyrevit &middot; dynamo</text>
+          <text x="490" y="316" text-anchor="middle" font-size="12" fill="#52606d">workflow</text>
+          <rect x="710" y="250" width="240" height="80" rx="10" fill="#eef3fa" stroke="#cfd8e3"/>
+          <text x="830" y="276" text-anchor="middle" font-size="13" font-weight="700" fill="#3a7bd5">Revit Commands</text>
+          <text x="830" y="298" text-anchor="middle" font-size="12" fill="#52606d">CreateWall &middot; GetInfo</text>
+          <text x="830" y="316" text-anchor="middle" font-size="12" fill="#52606d">PlaceFamily &middot; ...</text>
+          <line x1="270" y1="140" x2="370" y2="140" stroke="#3a7bd5" stroke-width="2" marker-end="url(#arrow)"/>
+          <line x1="370" y1="155" x2="270" y2="155" stroke="#3a7bd5" stroke-width="2" marker-end="url(#arrow)"/>
+          <text x="320" y="130" text-anchor="middle" font-size="11" fill="#52606d">MCP</text>
+          <line x1="610" y1="140" x2="710" y2="140" stroke="#3a7bd5" stroke-width="2" marker-end="url(#arrow)"/>
+          <line x1="710" y1="155" x2="610" y2="155" stroke="#3a7bd5" stroke-width="2" marker-end="url(#arrow)"/>
+          <text x="660" y="130" text-anchor="middle" font-size="11" fill="#52606d">Named Pipe (JSON)</text>
+          <line x1="490" y1="220" x2="490" y2="250" stroke="#cfd8e3" stroke-width="2" stroke-dasharray="4 4"/>
+          <line x1="830" y1="220" x2="830" y2="250" stroke="#cfd8e3" stroke-width="2" stroke-dasharray="4 4"/>
+        </g>
+      </svg>
+    </div>
+
+    <h2>Components</h2>
+
+    <h3>MCP Server (Python)</h3>
+    <p>The MCP server is the central hub. It:</p>
+    <ul>
+      <li>Registers tools from JSON definition files in <code>tools/</code></li>
+      <li>Validates tool call arguments against JSON Schemas</li>
+      <li>Routes calls to the appropriate adapter (<code>revit</code>, <code>pyrevit</code>, <code>dynamo</code>, <code>workflow</code>)</li>
+      <li>Manages the named pipe connection to the Revit add-in</li>
+      <li>Provides a provider-agnostic LLM layer for chat-based interaction</li>
+    </ul>
+
+    <h3>Revit Add-in (C#)</h3>
+    <p>The add-in runs inside Revit and:</p>
+    <ul>
+      <li>Connects to the MCP server via a named pipe client</li>
+      <li>Receives tool calls on a background thread</li>
+      <li>Bridges to the Revit main thread via <code>ExternalEvent</code></li>
+      <li>Executes commands within Revit transactions</li>
+      <li>Provides a WPF dockable chat panel</li>
+    </ul>
+
+    <h3>Named Pipe IPC</h3>
+    <p>Communication uses Windows Named Pipes with length-prefixed JSON framing:</p>
+    <ul>
+      <li><strong>Pipe name:</strong> <code>\\.\pipe\RevitOrchestrator</code></li>
+      <li><strong>Framing:</strong> 4-byte LE uint32 length + UTF-8 JSON</li>
+      <li><strong>Protocol:</strong> Request/response with UUID correlation</li>
+    </ul>
+    <p>See <code>contracts/pipe-protocol.md</code> for the full specification.</p>
+
+    <h2>Adapters</h2>
+
+    <h3>Revit Adapter</h3>
+    <p>Sends tool calls over the named pipe to the C# add-in for direct Revit API execution.</p>
+
+    <h3>pyRevit Adapter</h3>
+    <p>Invokes pyRevit CLI scripts as subprocesses with arguments passed via environment variables.</p>
+
+    <h3>Dynamo Adapter</h3>
+    <p>Runs Dynamo graphs through the Revit add-in's Dynamo integration.</p>
+
+    <h3>Workflow Adapter</h3>
+    <p>Composes multiple tool calls into multi-step flows, calling other adapters via the dispatcher.</p>
+
+    <h2>ExternalEvent Bridge</h2>
+    <p>
+      Revit's API is single-threaded. The pipe listener runs on a background
+      thread and cannot call the API directly. The bridge works as follows:
+    </p>
+    <ol>
+      <li>Background thread receives a tool call &rarr; enqueues a <code>ToolCallContext</code> (with a <code>TaskCompletionSource</code>)</li>
+      <li>Calls <code>ExternalEvent.Raise()</code></li>
+      <li>Revit calls <code>RevitCommandHandler.Execute()</code> on the main thread</li>
+      <li>Handler dispatches to the correct <code>IRevitCommand</code>, wraps in transaction if needed</li>
+      <li>Completes the <code>TaskCompletionSource</code> with the result</li>
+      <li>Background thread awaits the TCS, sends the result back over the pipe</li>
+    </ol>
+
+    <h2>Tool Registration</h2>
+    <p>Tools are defined as JSON files in <code>src/mcp-server/orchestrator/tools/</code>:</p>
+<pre><code>{
+  "name": "revit.create_wall",
+  "adapter": "revit",
+  "description": "Creates a wall...",
+  "parameters": { "type": "object", "properties": { ... } }
+}</code></pre>
+    <p>
+      A <code>watchdog</code> file watcher enables hot-reload: drop a new JSON
+      file and the tool appears immediately in the MCP catalog.
+    </p>
+
+    <h2>Multi-Version Revit Support</h2>
+    <p>
+      The C# project uses <code>Directory.Build.props</code> to parameterize
+      the Revit version:
+    </p>
+<pre><code>dotnet build -p:RevitVersion=2025
+dotnet build -p:RevitVersion=2026</code></pre>
+    <p>
+      Conditional compilation (<code>#if REVIT2025</code>) handles API
+      differences between versions.
+    </p>
+  </article>
+</main>
+
+<footer class="site-footer">
+  <div class="container">
+    <p>
+      Revit Orchestrator &middot;
+      <a href="https://github.com/DaltonGOO/Revit-Orchestrator" target="_blank" rel="noopener">GitHub</a>
+      &middot; MIT License
+    </p>
+  </div>
+</footer>
+
+<script src="script.js"></script>
+</body>
+</html>

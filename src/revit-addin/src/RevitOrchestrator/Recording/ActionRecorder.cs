@@ -338,18 +338,13 @@ public sealed class ActionRecorder : IDisposable
             "doors" => actionType == RecordedActionType.Create ? "revit.place_door" : "revit.modify_element",
             "windows" => actionType == RecordedActionType.Create ? "revit.place_window" : "revit.modify_element",
             "rooms" => actionType == RecordedActionType.Create ? "revit.create_room" : "revit.modify_element",
-            // Family-based categories → revit.place_family
-            "furniture" or "furniture systems"
-                or "plumbing fixtures" or "lighting fixtures" or "mechanical equipment"
-                or "electrical equipment" or "electrical fixtures"
-                or "specialty equipment" or "generic models"
-                or "columns" or "structural columns" or "structural framing"
-                => actionType == RecordedActionType.Create ? "revit.place_family" : "revit.modify_element",
-            // MEP categories → revit.create_element
-            "ducts" or "duct accessories" or "duct fittings" or "flex ducts" => actionType == RecordedActionType.Create ? "revit.create_element" : "revit.modify_element",
-            "pipes" or "pipe accessories" or "pipe fittings" or "flex pipes" => actionType == RecordedActionType.Create ? "revit.create_element" : "revit.modify_element",
-            "cable trays" or "conduits" => actionType == RecordedActionType.Create ? "revit.create_element" : "revit.modify_element",
-            _ => actionType == RecordedActionType.Create ? "revit.create_element" : "revit.modify_element"
+            // MEP linear categories → revit.create_element (start_point / end_point)
+            "ducts" or "duct accessories" or "duct fittings" or "flex ducts"
+                or "pipes" or "pipe accessories" or "pipe fittings" or "flex pipes"
+                or "cable trays" or "cable tray fittings" or "conduits" or "conduit fittings"
+                => actionType == RecordedActionType.Create ? "revit.create_element" : "revit.modify_element",
+            // Everything else is a family instance → revit.place_family
+            _ => actionType == RecordedActionType.Create ? "revit.place_family" : "revit.modify_element"
         };
     }
 
@@ -524,8 +519,8 @@ public sealed class ActionRecorder : IDisposable
                 action.Parameters["rotation"] = lp.Rotation;
             }
 
-            // Structural usage
-            if (fi.StructuralUsage != StructuralInstanceUsage.NonStructural)
+            // Structural usage (record if not the default/zero value)
+            if ((int)fi.StructuralUsage != 0)
             {
                 action.Parameters["structural_usage"] = fi.StructuralUsage.ToString();
             }

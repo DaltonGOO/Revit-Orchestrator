@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Adding tools &middot; Revit Orchestrator</title>
+  <meta name="description" content="Step-by-step guide to adding a new tool to Revit Orchestrator: JSON definition, Python handler, and optional C# command.">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<nav class="site-nav">
+  <div class="nav-inner">
+    <a class="nav-brand" href="index.html">
+      <span class="brand-mark"></span>
+      <span>Revit Orchestrator</span>
+    </a>
+    <div class="nav-links">
+      <a href="index.html">Home</a>
+      <a href="architecture.html">Architecture</a>
+      <a href="getting-started.html">Getting started</a>
+      <a href="tool-developer-guide.html">Tool developer guide</a>
+      <a href="adding-tools.html">Adding tools</a>
+      <a href="mcp-connections.html">MCP connections</a>
+      <a href="https://github.com/DaltonGOO/Revit-Orchestrator" target="_blank" rel="noopener">GitHub &uarr;</a>
+    </div>
+  </div>
+</nav>
+
+<main class="container">
+  <article class="article">
+    <p class="crumbs"><a href="index.html">Home</a> &nbsp;/&nbsp; Adding tools</p>
+
+    <h1>Adding Tools</h1>
+    <span class="title-underline"></span>
+
+    <p>This guide explains how to add new tools to Revit Orchestrator.</p>
+
+    <h2>Overview</h2>
+    <p>A tool consists of two parts:</p>
+    <ol>
+      <li>
+        <strong>Tool Definition</strong> &mdash; a JSON file in
+        <code>src/mcp-server/orchestrator/tools/</code> that describes the
+        tool's name, parameters, and which adapter handles it.
+      </li>
+      <li>
+        <strong>Handler</strong> &mdash; a Python module in
+        <code>src/mcp-server/orchestrator/handlers/</code> (and optionally a
+        C# command class for <code>revit</code> adapter tools).
+      </li>
+    </ol>
+
+    <h2>Step 1: Create the Tool Definition</h2>
+    <p>
+      Create a JSON file in <code>src/mcp-server/orchestrator/tools/</code>.
+      The filename should match the tool name:
+      <code>{adapter}.{tool_name}.json</code>.
+    </p>
+    <p>Example: <code>revit.delete_element.json</code></p>
+<pre><code>{
+  "name": "revit.delete_element",
+  "adapter": "revit",
+  "description": "Deletes a Revit element by its element ID.",
+  "parameters": {
+    "type": "object",
+    "properties": {
+      "element_id": {
+        "type": "integer",
+        "description": "The element ID to delete"
+      }
+    },
+    "required": ["element_id"]
+  },
+  "returns": {
+    "type": "object",
+    "properties": {
+      "success": { "type": "boolean" },
+      "message": { "type": "string" }
+    }
+  },
+  "examples": [
+    {
+      "description": "Delete wall with ID 54321",
+      "args": { "element_id": 54321 }
+    }
+  ]
+}</code></pre>
+    <p>The definition must conform to <code>contracts/tool-definition.schema.json</code>.</p>
+
+    <h2>Step 2: Create the Python Handler</h2>
+    <p>
+      Create a Python module at
+      <code>src/mcp-server/orchestrator/handlers/{name}.py</code> where dots
+      in the tool name are replaced with underscores.
+    </p>
+    <p>For <code>revit.delete_element</code> &rarr; <code>handlers/revit_delete_element.py</code></p>
+<pre><code>from __future__ import annotations
+from typing import Any
+from ..dispatcher.result import ToolResult
+
+async def execute(args: dict[str, Any], **kwargs: Any) -> ToolResult:
+    """Handler for revit.delete_element."""
+    return ToolResult.ok({
+        "message": "Delegated to Revit add-in",
+    })</code></pre>
+    <p>
+      For <code>revit</code> adapter tools, the handler is a pass-through
+      &mdash; the actual execution happens in C#. For <code>pyrevit</code>
+      and <code>dynamo</code> adapters, the handler contains the execution
+      logic.
+    </p>
+
+    <h2>Step 3: Create the C# Command (revit adapter only)</h2>
+    <p>For tools using the <code>revit</code> adapter, create a C# command class:</p>
+<pre><code>using System.Text.Json;
+using Autodesk.Revit.DB;
+using RevitOrchestrator.Execution;
+using RevitOrchestrator.Models;
+
+public sealed class DeleteElementCommand : IRevitCommand
+{
+    public string ToolName =&gt; "revit.delete_element";
+    public bool RequiresTransaction =&gt; true;
+
+    public ToolResult Execute(Document doc, JsonElement args)
+    {
+        var elementId = args.GetProperty("element_id").GetInt64();
+        var element = doc.GetElement(new ElementId((long)elementId));
+
+        if (element is null)
+            return ToolResult.Fail("", "REVIT_API_ERROR", "Element not found");
+
+        doc.Delete(element.Id);
+
+        return ToolResult.Ok("", new Dictionary&lt;string, object?&gt;
+        {
+            ["success"] = true,
+            ["message"] = $"Deleted element {elementId}",
+        });
+    }
+}</code></pre>
+    <p>Register it in <code>App.cs</code>:</p>
+<pre><code>private void RegisterCommands()
+{
+    CommandDispatcher.Register(new GetElementInfoCommand());
+    CommandDispatcher.Register(new CreateWallCommand());
+    CommandDispatcher.Register(new DeleteElementCommand()); // Add this
+}</code></pre>
+
+    <h2>Step 4: Verify</h2>
+    <p>
+      If hot-reload is enabled (default), the new tool appears immediately
+      after saving the JSON file. Otherwise, restart the MCP server.
+    </p>
+    <p>Verify with the MCP inspector:</p>
+<pre><code>mcp dev orchestrator/server.py</code></pre>
+    <p>The new tool should appear in the tool list with its schema.</p>
+
+    <h2>Adapter Types</h2>
+    <table>
+      <thead>
+        <tr><th>Adapter</th><th>Handler Behavior</th><th>C# Needed?</th></tr>
+      </thead>
+      <tbody>
+        <tr><td><code>revit</code></td><td>Pass-through; real work in C#</td><td>Yes</td></tr>
+        <tr><td><code>pyrevit</code></td><td>Runs pyRevit CLI scripts</td><td>No</td></tr>
+        <tr><td><code>dynamo</code></td><td>Runs Dynamo graphs via add-in</td><td>No</td></tr>
+        <tr><td><code>workflow</code></td><td>Orchestrates other tool calls</td><td>No</td></tr>
+      </tbody>
+    </table>
+
+    <h2>Workflow Tools</h2>
+    <p>Workflow handlers receive the dispatcher and can call other tools:</p>
+<pre><code>async def execute(args: dict[str, Any], dispatcher=None, **kwargs):
+    # Call another tool
+    result = await dispatcher.dispatch("revit.create_wall", wall_args)</code></pre>
+
+    <p style="margin-top: 1.5rem;">
+      For deeper coverage of fields, permissions, side effects, and the pipe
+      protocol, see the <a href="tool-developer-guide.html">tool developer guide</a>.
+    </p>
+  </article>
+</main>
+
+<footer class="site-footer">
+  <div class="container">
+    <p>
+      Revit Orchestrator &middot;
+      <a href="https://github.com/DaltonGOO/Revit-Orchestrator" target="_blank" rel="noopener">GitHub</a>
+      &middot; MIT License
+    </p>
+  </div>
+</footer>
+
+<script src="script.js"></script>
+</body>
+</html>

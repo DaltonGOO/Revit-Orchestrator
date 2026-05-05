@@ -1,0 +1,10 @@
+{
+    "type": "extension",
+    "name": "orchestrator",
+    "description": "Revit Orchestrator pyRevit bridge. Registers HTTP routes that the orchestrator's C# add-in calls into to run user-supplied Python tools using pyRevit's IronPython.",
+    "author": "Revit Orchestrator",
+    "default_enabled": "True",
+    "rocket_mode_compatible": "True",
+    "url": "https://github.com/DaltonGOO/Revit-Orchestrator",
+    "dependencies": []
+}

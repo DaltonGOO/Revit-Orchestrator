@@ -47,7 +47,32 @@ Desktop.ini
 *.log
 logs/
 
+# Runtime data
+data/
+*.db
+
+# Claude Code
+.claude/
+
 # Tool output
 .pytest_cache/
 htmlcov/
 .coverage
+
+# IronPython stdlib auto-downloaded by deploy.ps1; not committed
+src/revit-addin/python-stdlib/
+
+# User-captured workflows / runtime tool defs (machine-specific paths)
+src/mcp-server/orchestrator/tools/captured.*.json
+src/mcp-server/orchestrator/tools/recorded.*.json
+
+# Local MCP/connection state (may contain user-specific paths/credentials)
+src/mcp-server/data/connections.json
+
+# Local Claude Code & editor state
+.claude/settings.local.json
+
+# Exported schedules / project data dropped into tools/ during testing.
+# These are run outputs, not sample tools — keep locally only.
+tools/pyrevit/*.json
+!tools/pyrevit/*.example.json

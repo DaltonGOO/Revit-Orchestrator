@@ -143,6 +143,12 @@ def make_chat_status(status: str) -> dict[str, Any]:
     return make_message("chat_status", {"status": status})
 
 
+def make_chat_cancel() -> dict[str, Any]:
+    """Create a chat_cancel (C# → Python). Asks Python to abort the in-flight
+    chat task so the UI doesn't sit forever on a stuck tool call."""
+    return make_message("chat_cancel")
+
+
 def make_tool_list_request() -> dict[str, Any]:
     """Create a tool_list_request (C# → Python)."""
     return make_message("tool_list_request")
@@ -907,6 +913,60 @@ def make_mapping_response(
         {
             "action": action,
             "selected_option": selected_option,
+            "call_id": call_id,
+        },
+    )
+
+
+# ------------------------------------------------------------------
+# Dynamo run-graph dialog (Python → C# → Python)
+#
+# Powers `dynamo.run_graph_interactive`: Python pushes an "open dialog"
+# request when an LLM tool call wants the user to fill the form, and waits
+# for the result that the C# add-in returns once the user clicks Run/Cancel.
+# ------------------------------------------------------------------
+
+def make_dynamo_open_run_dialog_request(
+    graph_path: str,
+    suggested_inputs: dict[str, Any] | None = None,
+    call_id: str | None = None,
+) -> dict[str, Any]:
+    """Create a dynamo_open_run_dialog_request (Python → C#)."""
+    return make_message(
+        "dynamo_open_run_dialog_request",
+        {
+            "graph_path": graph_path,
+            "suggested_inputs": suggested_inputs or {},
+            "call_id": call_id or "",
+        },
+    )
+
+
+def make_dynamo_run_dialog_result(
+    status: str,
+    inputs_used: dict[str, Any] | None = None,
+    result: dict[str, Any] | None = None,
+    error: str | None = None,
+    call_id: str = "",
+) -> dict[str, Any]:
+    """Create a dynamo_run_dialog_result message (C# → Python).
+
+    Args:
+        status: One of 'ran' (user clicked Run, graph executed),
+                'cancelled' (user closed/cancelled the dialog),
+                'error' (something failed in the dialog).
+        inputs_used: The values the user entered (when status='ran').
+        result: The result dict from dynamo.run_graph (when status='ran').
+        error: Human-readable error string (when status='error').
+        call_id: Correlation ID from the original open request.
+    """
+    return make_message(
+        "dynamo_run_dialog_result",
+        {
+            "status": status,
+            "inputs_used": inputs_used or {},
+            "result": result or {},
+            "error": error or "",
             "call_id": call_id,
         },
     )

@@ -321,6 +321,51 @@ public sealed class WorkflowEditorViewModel : INotifyPropertyChanged
     }
 
     /// <summary>
+    /// Un-promote keys that have conflicting values across multiple steps.
+    /// Call this after adding all steps from a recording so that each step
+    /// keeps its own static value for keys like family_name, type_name, etc.
+    /// Keys with the same value across all steps that use them stay promoted.
+    /// </summary>
+    public void ResolvePromotionConflicts()
+    {
+        // Group promoted args by key across all steps
+        var keyValues = new Dictionary<string, List<(WorkflowStepViewModel Step, StepArgViewModel Arg)>>(
+            StringComparer.Ordinal);
+
+        foreach (var step in Steps)
+        {
+            foreach (var arg in step.Args)
+            {
+                if (!arg.IsPromoted) continue;
+                if (!keyValues.ContainsKey(arg.Key))
+                    keyValues[arg.Key] = new();
+                keyValues[arg.Key].Add((step, arg));
+            }
+        }
+
+        // For each key that appears in multiple steps, check if values differ
+        foreach (var kvp in keyValues)
+        {
+            var entries = kvp.Value;
+            if (entries.Count <= 1) continue;
+
+            var firstValue = entries[0].Arg.ValueJson;
+            bool conflict = entries.Any(e => e.Arg.ValueJson != firstValue);
+
+            if (conflict)
+            {
+                // Values differ - un-promote so each step keeps its own static value
+                foreach (var (_, arg) in entries)
+                {
+                    arg.IsPromoted = false;
+                }
+            }
+        }
+
+        RefreshPromotedParameters();
+    }
+
+    /// <summary>
     /// Rebuild the aggregated PromotedParameters collection from all steps.
     /// Called when steps change or when a step arg's IsPromoted changes.
     /// </summary>

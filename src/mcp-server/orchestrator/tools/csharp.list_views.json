@@ -1,0 +1,22 @@
+{
+  "name": "csharp.list_views",
+  "adapter": "csharp",
+  "description": "List views in the active document, optionally filtered by name substring and/or view type (Plan, Elevation, Section, ThreeD, etc.). Returns id, name, type, scale for each. Use as the discovery step before bulk operations on views — especially before csharp.create_sheets_from_views.",
+  "parameters": {
+    "type": "object",
+    "properties": {
+      "script_path": {
+        "type": "string",
+        "default": "${REPO_ROOT}\\tools\\c#\\list_views.cs"
+      },
+      "arguments": {
+        "type": "object",
+        "properties": {
+          "name_contains": { "type": "string", "description": "Case-insensitive substring filter on view name (e.g. 'Elevation', 'Lobby')" },
+          "type": { "type": "string", "description": "Case-insensitive substring filter on view type (e.g. 'Elevation', 'FloorPlan', 'Section')" }
+        }
+      }
+    },
+    "required": ["script_path"]
+  }
+}

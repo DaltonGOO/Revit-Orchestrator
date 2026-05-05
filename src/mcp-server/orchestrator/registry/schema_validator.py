@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import logging
+import sys
 from pathlib import Path
 from typing import Any
 
@@ -14,9 +15,16 @@ logger = logging.getLogger(__name__)
 def _find_contracts_dir() -> Path:
     """Locate the ``contracts/`` directory by walking up from this file.
 
-    Uses ``resolve()`` first so NTFS junctions / symlinks are followed
-    before climbing the directory tree.
+    In a PyInstaller bundle, looks under ``sys._MEIPASS``.
+    Otherwise uses ``resolve()`` first so NTFS junctions / symlinks are
+    followed before climbing the directory tree.
     """
+    # PyInstaller frozen bundle: contracts/ is bundled at the root
+    if getattr(sys, "frozen", False):
+        candidate = Path(sys._MEIPASS) / "contracts"  # type: ignore[attr-defined]
+        if candidate.is_dir():
+            return candidate
+
     p = Path(__file__).resolve()
     for _ in range(10):
         p = p.parent

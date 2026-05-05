@@ -276,6 +276,9 @@ public sealed class RecordingViewModel : INotifyPropertyChanged
         {
             vm.Steps.Add(new WorkflowStepViewModel(step));
         }
+        // Un-promote keys that have conflicting values across steps
+        // (e.g., different family_name per step in a multi-element recording)
+        vm.ResolvePromotionConflicts();
         // Generate default name from first tool
         if (steps.Count > 0)
         {
@@ -306,6 +309,7 @@ public sealed class RecordingViewModel : INotifyPropertyChanged
         {
             vm.Steps.Add(new WorkflowStepViewModel(step));
         }
+        vm.ResolvePromotionConflicts();
 
         var def = await WorkflowEditorDialog.ShowWithTestSupportAsync(vm);
         if (def != null)

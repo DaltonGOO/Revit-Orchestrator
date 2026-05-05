@@ -21,7 +21,7 @@ class ExecutionLogger:
 
     Tracks a correlation_id for each agentic loop and sequence numbers
     within that loop to allow the UI to group and order related events.
-    Optionally writes to a persistent AuditLog or SqliteEventStore.
+    Optionally writes to a persistent JSONL AuditLog.
     """
 
     def __init__(
@@ -51,18 +51,6 @@ class ExecutionLogger:
         self._sequence = 0
         self._start_times.clear()
         logger.debug("Started new correlation: %s", self._correlation_id)
-
-        # If the store supports episodes, start one
-        if hasattr(self._audit_log, "start_episode"):
-            try:
-                self._audit_log.start_episode(
-                    episode_id=self._correlation_id,
-                    origin=self._origin,
-                    context=self._run_context,
-                )
-            except Exception:
-                logger.exception("Failed to start episode in event store")
-
         return self._correlation_id
 
     @property
@@ -86,91 +74,10 @@ class ExecutionLogger:
         duration_ms: int = 0,
         error: str | None = None,
     ) -> None:
-        """Write an event to the persistent audit log / event store if available."""
+        """Write an event to the persistent JSONL audit log if available."""
         if self._audit_log is None:
             return
 
-        # Extract model changes data
-        delta_json = None
-        error_code = None
-        connection_info = None
-        if result is not None:
-            created = result.data.get("model_changes", {}).get("created", [])
-            modified = result.data.get("model_changes", {}).get("modified", [])
-            deleted = result.data.get("model_changes", {}).get("deleted", [])
-            mcs = {
-                "created": len(created),
-                "modified": len(modified),
-                "deleted": len(deleted),
-            }
-            if any(mcs.values()):
-                delta_json = json.dumps(mcs, default=str)
-            if not result.success:
-                error_code = result.error_code
-            # Extract MCP connection traceability
-            connection_info = result.data.get("_connection")
-
-        # Use episode-aware API if available (SqliteEventStore)
-        if hasattr(self._audit_log, "log_step"):
-            try:
-                cid = self._correlation_id or ""
-                if event_type == "started":
-                    self._audit_log.log_step(
-                        episode_id=cid,
-                        event_id=event_id,
-                        seq=self._sequence,
-                        tool_name=tool_name,
-                        args=args,
-                        args_hash=self._hash_args(args),
-                        origin=self._origin,
-                    )
-                elif event_type in ("completed", "failed"):
-                    # Build entity targets from model_changes if available
-                    targets_json = None
-                    if result is not None and hasattr(self._audit_log, "blob_store"):
-                        mc = result.data.get("model_changes", {})
-                        doc_guid = self._run_context.get("doc_guid", "")
-                        if mc and doc_guid:
-                            try:
-                                from .store.entity_tracker import EntityTracker
-                                tracker = EntityTracker(self._audit_log)
-                                targets_json = tracker.build_targets_json(doc_guid, mc)
-                            except Exception:
-                                logger.debug("Entity tracking failed (non-fatal)")
-
-                    # Build context with connection traceability
-                    context_json = None
-                    if connection_info:
-                        context_json = json.dumps({
-                            "connection_id": connection_info.get("connection_id", ""),
-                            "connection_name": connection_info.get("connection_name", ""),
-                            "original_tool_name": connection_info.get("original_tool_name", ""),
-                        }, default=str)
-
-                    self._audit_log.update_step(
-                        event_id=event_id,
-                        status=event_type,
-                        duration_ms=duration_ms,
-                        delta_json=delta_json,
-                        error_code=error_code,
-                        error_json=json.dumps(error) if error else None,
-                        targets_json=targets_json,
-                    )
-                    # Write connection traceability to context column
-                    if context_json and hasattr(self._audit_log, '_conn'):
-                        try:
-                            self._audit_log._conn.execute(
-                                "UPDATE events SET context_json = ? WHERE id = ?",
-                                (context_json, event_id),
-                            )
-                            self._audit_log._conn.commit()
-                        except Exception:
-                            logger.debug("Failed to write connection context", exc_info=True)
-            except Exception:
-                logger.exception("Failed to write to event store")
-            return
-
-        # Fallback: original AuditLog flat event format
         event: dict[str, Any] = {
             "event_id": event_id,
             "correlation_id": self._correlation_id or "",
@@ -337,27 +244,15 @@ class ExecutionLogger:
         total_usage: dict[str, Any] | None = None,
         outcome: str = "completed",
     ) -> None:
-        """Log an end-of-loop summary event to the audit log / event store."""
+        """Log an end-of-loop summary event to the JSONL audit log."""
         if self._audit_log is None:
             return
 
-        # Use episode-aware API if available
-        if hasattr(self._audit_log, "end_episode"):
-            try:
-                self._audit_log.end_episode(
-                    correlation_id,
-                    outcome=outcome,
-                    total_usage=total_usage,
-                )
-            except Exception:
-                logger.exception("Failed to end episode in event store")
-            return
-
-        # Fallback: original AuditLog format
-        event = {
+        event: dict[str, Any] = {
             "event_id": str(uuid.uuid4()),
             "correlation_id": correlation_id,
             "event_type": "correlation_summary",
+            "outcome": outcome,
             "tool_name": "",
             "sequence": self._sequence,
         }

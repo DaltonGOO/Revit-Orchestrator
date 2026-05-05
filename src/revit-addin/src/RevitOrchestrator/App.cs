@@ -11,6 +11,33 @@ using RevitOrchestrator.UI;
 namespace RevitOrchestrator;
 
 /// <summary>
+/// Module initializer — registers code-page encodings the moment our assembly
+/// loads, before Revit fires OnStartup on any add-in. IronPython's CodecsInfo
+/// type initializer enumerates every encoding on first access; if encoding
+/// 932 (Shift-JIS) or any other code page hasn't been registered, the type
+/// init fails permanently for the lifetime of the AppDomain. Registering here
+/// gives us the earliest possible hook so pyRevit can't poison the codec
+/// registry before we get a chance.
+/// </summary>
+internal static class EncodingBootstrap
+{
+    [System.Runtime.CompilerServices.ModuleInitializer]
+    internal static void RegisterCodePages()
+    {
+        try
+        {
+            System.Text.Encoding.RegisterProvider(
+                System.Text.CodePagesEncodingProvider.Instance);
+        }
+        catch
+        {
+            // Swallow — re-registering is benign and we don't want a missing
+            // BCL package to crash add-in load.
+        }
+    }
+}
+
+/// <summary>
 /// Revit add-in entry point. Sets up the pipe listener, command infrastructure,
 /// and dockable chat panel.
 /// </summary>
@@ -35,6 +62,9 @@ public sealed class App : IExternalApplication
     public Result OnStartup(UIControlledApplication application)
     {
         Instance = this;
+
+        // Code-page encoding registration happens earlier via the module
+        // initializer at the top of this file — see EncodingBootstrap.
 
         // Set up command infrastructure
         CommandDispatcher = new CommandDispatcher();
@@ -160,6 +190,37 @@ public sealed class App : IExternalApplication
             return await tcs.Task;
         };
 
+        // Chat-triggered Run Graph dialog (dynamo.run_graph_interactive)
+        PipeListener.OnDynamoOpenRunDialogRequest = async (request) =>
+        {
+            var tcs = new TaskCompletionSource<DynamoRunDialogResult>();
+            RunOnRevitThread(_ =>
+            {
+                try
+                {
+                    var suggested = ParseSuggestedInputs(request.SuggestedInputs);
+                    var dialog = new UI.RunDynamoGraphDialog(request.GraphPath, suggested);
+                    dialog.ShowDialog();
+
+                    tcs.TrySetResult(new DynamoRunDialogResult
+                    {
+                        Status = dialog.ResultStatus,
+                        InputsUsed = dialog.InputsUsed,
+                        Result = dialog.RunResult,
+                    });
+                }
+                catch (Exception ex)
+                {
+                    tcs.TrySetResult(new DynamoRunDialogResult
+                    {
+                        Status = "error",
+                        Error = ex.Message,
+                    });
+                }
+            });
+            return await tcs.Task;
+        };
+
         PipeListener.GetRunContext = () =>
         {
             try
@@ -255,6 +316,36 @@ public sealed class App : IExternalApplication
         CommandDispatcher.Register(new ResolveFamilyTypeCommand());
         CommandDispatcher.Register(new ResolveHostElementCommand());
         CommandDispatcher.Register(new RunDynamoGraphCommand());
-        CommandDispatcher.Register(new RunPythonScriptCommand());
+        CommandDispatcher.Register(new RunCSharpScriptCommand());
+        // Note: pyrevit.run_script is NOT registered as an IRevitCommand.
+        // It bypasses the ExternalEvent path (see PipeListener.HandleToolCallAsync)
+        // and routes through PyRevitRouteBridge so we don't deadlock the
+        // Revit API thread on the HTTP call.
+    }
+
+    /// <summary>
+    /// Convert the suggested_inputs JsonElement (object) into a string-keyed
+    /// dictionary the Run Graph dialog can consume to pre-fill the form.
+    /// </summary>
+    private static Dictionary<string, object?> ParseSuggestedInputs(System.Text.Json.JsonElement el)
+    {
+        var dict = new Dictionary<string, object?>();
+        if (el.ValueKind != System.Text.Json.JsonValueKind.Object) return dict;
+
+        foreach (var prop in el.EnumerateObject())
+        {
+            dict[prop.Name] = prop.Value.ValueKind switch
+            {
+                System.Text.Json.JsonValueKind.String => prop.Value.GetString(),
+                System.Text.Json.JsonValueKind.True => true,
+                System.Text.Json.JsonValueKind.False => false,
+                System.Text.Json.JsonValueKind.Null => null,
+                System.Text.Json.JsonValueKind.Number =>
+                    prop.Value.TryGetInt64(out var i) ? (object?)i :
+                    prop.Value.TryGetDouble(out var d) ? d : prop.Value.GetRawText(),
+                _ => prop.Value.GetRawText(),
+            };
+        }
+        return dict;
     }
 }

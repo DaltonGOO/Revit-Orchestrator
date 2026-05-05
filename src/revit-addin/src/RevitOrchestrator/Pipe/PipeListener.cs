@@ -58,6 +58,13 @@ public sealed class PipeListener : IDisposable
     public Func<MappingRequest, Task<MappingResponse>>? OnMappingRequest;
 
     /// <summary>
+    /// Fired when Python asks the add-in to open the interactive Run Graph
+    /// dialog (driven by the dynamo.run_graph_interactive tool). The handler
+    /// must show the dialog on the UI thread and return what the user did.
+    /// </summary>
+    public Func<DynamoRunDialogRequest, Task<DynamoRunDialogResult>>? OnDynamoOpenRunDialogRequest;
+
+    /// <summary>
     /// Function to gather current Revit run context for status queries.
     /// </summary>
     public Func<RunContext>? GetRunContext;
@@ -106,6 +113,20 @@ public sealed class PipeListener : IDisposable
             throw new InvalidOperationException("Pipe is not connected");
 
         var message = PipeMessage.Create("chat_message", new { content });
+        await _client.SendAsync(message);
+    }
+
+    /// <summary>
+    /// Ask the Python server to abort the in-flight chat turn. Used when the
+    /// user clicks Cancel in the chat UI because a tool call is hung (e.g.
+    /// an interactive dialog that never opened).
+    /// </summary>
+    public async Task SendChatCancelAsync()
+    {
+        if (_client is null || !_client.IsConnected)
+            throw new InvalidOperationException("Pipe is not connected");
+
+        var message = PipeMessage.Create("chat_cancel", new { });
         await _client.SendAsync(message);
     }
 
@@ -565,6 +586,10 @@ public sealed class PipeListener : IDisposable
                     await HandleMappingRequestAsync(message);
                     break;
 
+                case "dynamo_open_run_dialog_request":
+                    await HandleDynamoOpenRunDialogRequestAsync(message);
+                    break;
+
                 case "workflow_suggestion":
                     OnWorkflowSuggestion?.Invoke(message.Payload);
                     break;
@@ -655,10 +680,25 @@ public sealed class PipeListener : IDisposable
 
         toolCall.CallId = message.Id;
 
-        // Enqueue and wait for the result via ExternalEvent
-        var result = await _commandQueue.EnqueueAsync(toolCall, ct);
+        ToolResult result;
+        if (toolCall.ToolName.StartsWith("pyrevit.", StringComparison.Ordinal))
+        {
+            // pyRevit tools must NOT go through ExternalEvent. Reason: this
+            // pipe handler runs on a worker thread; ExternalEvent dispatches
+            // the IRevitCommand on the Revit *API* thread; that command then
+            // makes a blocking HTTP call to pyRevit Routes — and pyRevit's
+            // route handler also needs the Revit API thread to access `doc`.
+            // Both threads end up waiting for each other → deadlock, Revit UI
+            // hangs forever. Calling HTTP directly from this worker thread
+            // leaves the API thread free for pyRevit Routes.
+            result = await Commands.PyRevitRouteBridge.InvokeAsync(toolCall, ct);
+        }
+        else
+        {
+            // Standard path: enqueue and wait for the result via ExternalEvent.
+            result = await _commandQueue.EnqueueAsync(toolCall, ct);
+        }
 
-        // Send result back
         var response = PipeMessage.Create("tool_result", result);
         await _client!.SendAsync(response, ct);
     }
@@ -734,6 +774,54 @@ public sealed class PipeListener : IDisposable
         {
             action = mappingResponse.Action,
             selected_option = mappingResponse.SelectedOption,
+            call_id = request.CallId,
+        });
+
+        if (_client != null)
+            await _client.SendAsync(response);
+    }
+
+    private async Task HandleDynamoOpenRunDialogRequestAsync(PipeMessage message)
+    {
+        var payload = message.Payload;
+        var request = new DynamoRunDialogRequest
+        {
+            CallId = payload.TryGetProperty("call_id", out var callIdEl) ? callIdEl.GetString() ?? "" : "",
+            GraphPath = payload.TryGetProperty("graph_path", out var pathEl) ? pathEl.GetString() ?? "" : "",
+            SuggestedInputs = payload.TryGetProperty("suggested_inputs", out var inputsEl) ? inputsEl : default,
+        };
+
+        DynamoRunDialogResult result;
+        try
+        {
+            if (OnDynamoOpenRunDialogRequest is null)
+            {
+                result = new DynamoRunDialogResult
+                {
+                    Status = "error",
+                    Error = "No handler is registered for the Run Graph dialog",
+                };
+            }
+            else
+            {
+                result = await OnDynamoOpenRunDialogRequest(request);
+            }
+        }
+        catch (Exception ex)
+        {
+            result = new DynamoRunDialogResult
+            {
+                Status = "error",
+                Error = ex.Message,
+            };
+        }
+
+        var response = PipeMessage.Create("dynamo_run_dialog_result", new
+        {
+            status = result.Status,
+            inputs_used = result.InputsUsed ?? new Dictionary<string, object?>(),
+            result = result.Result ?? new Dictionary<string, object?>(),
+            error = result.Error,
             call_id = request.CallId,
         });
 

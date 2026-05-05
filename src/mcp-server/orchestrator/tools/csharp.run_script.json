@@ -1,0 +1,20 @@
+{
+  "name": "csharp.run_script",
+  "adapter": "csharp",
+  "description": "Run a C# script (.cs file) against the active Revit document. The script has uiapp, doc, and inputs in scope and returns a Dictionary<string, object> as the tool result. See tools/c#/README.md for the convention. Use this for one-off Revit API operations that don't fit the existing tools.",
+  "parameters": {
+    "type": "object",
+    "properties": {
+      "script_path": {
+        "type": "string",
+        "description": "Absolute path to the .cs file to execute."
+      },
+      "arguments": {
+        "type": "object",
+        "description": "Key/value pairs passed to the script as the `inputs` global.",
+        "additionalProperties": true
+      }
+    },
+    "required": ["script_path"]
+  }
+}

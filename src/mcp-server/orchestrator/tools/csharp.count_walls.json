@@ -1,0 +1,16 @@
+{
+  "name": "csharp.count_walls",
+  "adapter": "csharp",
+  "description": "Count the walls in the active Revit document. Returns wall_count plus a summary list of walls (id, name, type, level) for up to 50 walls. Backed by tools/c#/wall_count.cs — call this when the user asks 'how many walls' or 'list walls in the model'.",
+  "parameters": {
+    "type": "object",
+    "properties": {
+      "script_path": {
+        "type": "string",
+        "description": "Path to the wall_count.cs script.",
+        "default": "${REPO_ROOT}\\tools\\c#\\wall_count.cs"
+      }
+    },
+    "required": ["script_path"]
+  }
+}

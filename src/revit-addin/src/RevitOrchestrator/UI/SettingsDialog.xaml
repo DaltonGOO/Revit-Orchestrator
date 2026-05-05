@@ -88,8 +88,8 @@
 
                 <Separator Margin="0,0,0,12" />
 
-                <!-- Storage -->
-                <TextBlock Text="Storage"
+                <!-- Logging -->
+                <TextBlock Text="Logging"
                            FontWeight="Bold" FontSize="14"
                            Foreground="#1a73e8" Margin="0,0,0,8" />
                 <Grid Margin="0,0,0,16">
@@ -99,29 +99,9 @@
                     </Grid.ColumnDefinitions>
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto" />
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="Auto" />
                     </Grid.RowDefinitions>
-                    <TextBlock Grid.Row="0" Grid.Column="0" Text="Event Store (DB):" Foreground="#666" Margin="0,2" />
-                    <TextBlock Grid.Row="0" Grid.Column="1" x:Name="EventStorePathText" Text="--"
-                               TextWrapping="Wrap" Margin="0,2" />
-                    <TextBlock Grid.Row="1" Grid.Column="0" Text="DB Size:" Foreground="#666" Margin="0,2" />
-                    <TextBlock Grid.Row="1" Grid.Column="1" x:Name="EventStoreSizeText" Text="--" Margin="0,2" />
-                    <TextBlock Grid.Row="2" Grid.Column="0" Text="Episodes:" Foreground="#666" Margin="0,2" />
-                    <TextBlock Grid.Row="2" Grid.Column="1" x:Name="EpisodeCountText" Text="--" Margin="0,2" />
-                    <TextBlock Grid.Row="3" Grid.Column="0" Text="Events:" Foreground="#666" Margin="0,2" />
-                    <TextBlock Grid.Row="3" Grid.Column="1" x:Name="EventCountText" Text="--" Margin="0,2" />
-                    <TextBlock Grid.Row="4" Grid.Column="0" Text="Blob Store:" Foreground="#666" Margin="0,2" />
-                    <TextBlock Grid.Row="4" Grid.Column="1" x:Name="BlobStorePathText" Text="--"
-                               TextWrapping="Wrap" Margin="0,2" />
-                    <TextBlock Grid.Row="5" Grid.Column="0" Text="Blob Count:" Foreground="#666" Margin="0,2" />
-                    <TextBlock Grid.Row="5" Grid.Column="1" x:Name="BlobCountText" Text="--" Margin="0,2" />
-                    <TextBlock Grid.Row="6" Grid.Column="0" Text="JSONL Logs:" Foreground="#666" Margin="0,2" />
-                    <TextBlock Grid.Row="6" Grid.Column="1" x:Name="AuditLogDirText" Text="--"
+                    <TextBlock Grid.Row="0" Grid.Column="0" Text="JSONL Logs:" Foreground="#666" Margin="0,2" />
+                    <TextBlock Grid.Row="0" Grid.Column="1" x:Name="AuditLogDirText" Text="--"
                                TextWrapping="Wrap" Margin="0,2" />
                 </Grid>
 
@@ -148,27 +128,6 @@
                     <TextBlock Grid.Row="1" Grid.Column="1" x:Name="ToolCountText" Text="--" Margin="0,2" />
                     <TextBlock Grid.Row="2" Grid.Column="0" Text="Hot Reload:" Foreground="#666" Margin="0,2" />
                     <TextBlock Grid.Row="2" Grid.Column="1" x:Name="HotReloadText" Text="--" Margin="0,2" />
-                </Grid>
-
-                <Separator Margin="0,0,0,12" />
-
-                <!-- ML / Embeddings -->
-                <TextBlock Text="ML / Embeddings"
-                           FontWeight="Bold" FontSize="14"
-                           Foreground="#1a73e8" Margin="0,0,0,8" />
-                <Grid Margin="0,0,0,16">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="140" />
-                        <ColumnDefinition Width="*" />
-                    </Grid.ColumnDefinitions>
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="Auto" />
-                    </Grid.RowDefinitions>
-                    <TextBlock Grid.Row="0" Grid.Column="0" Text="Embedding Model:" Foreground="#666" Margin="0,2" />
-                    <TextBlock Grid.Row="0" Grid.Column="1" x:Name="EmbeddingModelText" Text="--" Margin="0,2" />
-                    <TextBlock Grid.Row="1" Grid.Column="0" Text="ML Available:" Foreground="#666" Margin="0,2" />
-                    <TextBlock Grid.Row="1" Grid.Column="1" x:Name="MlAvailableText" Text="--" Margin="0,2" />
                 </Grid>
 
                 <Separator Margin="0,0,0,12" />

@@ -52,9 +52,17 @@ class LLMRouter:
         self._name_map.clear()
 
     def _get_formatted_tools(self) -> list[dict[str, Any]]:
-        """Get tool definitions formatted for the current provider."""
+        """Get tool definitions formatted for the current provider.
+
+        Tools with visibility 'internal' (used as preconditions/resolvers) and
+        'user-only' (manual UI buttons like the Run Graph dialog) are filtered
+        out so the LLM neither sees nor calls them.
+        """
         if self._tools_cache is None:
-            definitions = self._registry.list_tools()
+            definitions = [
+                d for d in self._registry.list_tools()
+                if d.get("visibility", "user") not in ("internal", "user-only")
+            ]
             self._tools_cache = self._provider.format_tools(definitions)
             # Build reverse name map (sanitized → original)
             for defn in definitions:
@@ -62,6 +70,15 @@ class LLMRouter:
                 sanitized = original.replace(".", "_")
                 if sanitized != original:
                     self._name_map[sanitized] = original
+
+            # Log what we're actually sending so we can answer
+            # "where did my tool go?" from the audit log alone.
+            tool_names = [t.get("name", "?") for t in self._tools_cache]
+            logger.info(
+                "LLM tool catalog (%d tools): %s",
+                len(tool_names),
+                ", ".join(sorted(tool_names)),
+            )
         return self._tools_cache
 
     def _restore_tool_names(self, response: LLMResponse) -> LLMResponse:

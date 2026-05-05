@@ -15,6 +15,7 @@ from .dispatcher.dispatcher import Dispatcher
 from .dispatcher.result import ToolResult
 from .adapters.revit_addin import RevitAddinAdapter
 from .adapters.pyrevit import PyRevitAdapter
+from .adapters.csharp import CSharpAdapter
 from .adapters.dynamo import DynamoAdapter
 from .adapters.workflow import WorkflowAdapter
 from .pipe.pipe_server import PipeServer
@@ -34,7 +35,6 @@ from .pipe.protocol import (
     make_settings_response,
     make_settings_update_response,
     make_context_request,
-    make_screenshot_request,
     make_connection_list_response,
     make_connection_add_response,
     make_connection_update_response,
@@ -50,9 +50,7 @@ from .chat_session import ChatSession
 from .execution_logger import ExecutionLogger
 from .registry.file_parser import parse_file
 from .telemetry.audit_log import AuditLog
-from .store import SqliteEventStore, BlobStore
-from .store.migration import JsonlMigrator
-from .store.background_processor import BackgroundCardProcessor
+from .connections.json_store import JsonConnectionStore
 
 import os
 import signal
@@ -68,8 +66,6 @@ registry: ToolRegistry | None = None
 mcp: FastMCP | None = None
 
 _audit_log: AuditLog | None = None
-_event_store: SqliteEventStore | None = None
-_card_processor: BackgroundCardProcessor | None = None
 
 revit_adapter: RevitAddinAdapter | None = None
 pyrevit_adapter: PyRevitAdapter | None = None
@@ -106,42 +102,6 @@ async def _fetch_run_context(connection: PipeConnection) -> dict[str, Any]:
     except Exception:
         logger.debug("Failed to fetch run context (non-fatal)")
         return {}
-
-
-async def _capture_screenshot(
-    connection: PipeConnection, event_id: str
-) -> None:
-    """Request a viewport screenshot from C# and store as an artifact."""
-    store = _event_store
-    if store is None or store.blob_store is None:
-        return
-    try:
-        msg = make_screenshot_request()
-        response = await connection.send_and_wait(msg, timeout=10.0)
-        payload = response.get("payload", {})
-        if not payload.get("success"):
-            return
-
-        image_b64 = payload.get("image_base64")
-        if not image_b64:
-            return
-
-        import base64
-        image_bytes = base64.b64decode(image_b64)
-        sha, rel_path = store.blob_store.put(
-            image_bytes, ext=".png", compress=False
-        )
-        store.add_artifact(
-            event_id=event_id,
-            kind="screenshot",
-            sha256=sha,
-            path=rel_path,
-            size_bytes=len(image_bytes),
-            mime_type=payload.get("mime_type", "image/png"),
-        )
-        logger.debug("Stored screenshot artifact for event %s", event_id)
-    except Exception:
-        logger.debug("Screenshot capture failed (non-fatal)", exc_info=True)
 
 
 def _create_llm_provider(cfg: Config):
@@ -185,6 +145,10 @@ async def _on_pipe_connect(connection: PipeConnection) -> None:
     if workflow_adapter is not None:
         workflow_adapter.set_pipe_connection(connection)
 
+    # Wire pipe connection to dynamo adapter for the interactive Run Graph dialog
+    if dynamo_adapter is not None:
+        dynamo_adapter.set_connection(connection)
+
     # Always wire tool management callbacks
     connection._on_tool_list_request = _handle_tool_list
     connection._on_tool_add_request = _handle_tool_add
@@ -207,7 +171,7 @@ async def _on_pipe_connect(connection: PipeConnection) -> None:
     connection._on_connection_toggle_request = _handle_connection_toggle
 
     if llm_router is not None:
-        session = ChatSession(connection, llm_router, dispatcher, audit_log=_event_store or _audit_log)
+        session = ChatSession(connection, llm_router, dispatcher, audit_log=_audit_log)
         _sessions[id(connection)] = session
         connection.set_on_chat_message(_on_chat_message)
         logger.info("Pipe client connected, chat session created")
@@ -227,6 +191,9 @@ async def _on_pipe_disconnect(connection: PipeConnection) -> None:
     # Clear workflow adapter pipe connection
     if workflow_adapter is not None and workflow_adapter._pipe_connection is connection:
         workflow_adapter.set_pipe_connection(None)
+    # Clear dynamo adapter pipe connection
+    if dynamo_adapter is not None and dynamo_adapter._connection is connection:
+        dynamo_adapter.set_connection(None)
     logger.info("Pipe client disconnected, chat session removed")
 
 
@@ -517,7 +484,7 @@ async def _handle_workflow_save(connection: PipeConnection, message: dict[str, A
             _register_single_tool(workflow_definition)
 
         # Audit log (write to event store if available, otherwise audit log)
-        _log_target = _event_store or _audit_log
+        _log_target = _audit_log
         if _log_target is not None:
             _log_target.log_event({
                 "event_type": "workflow_saved",
@@ -645,7 +612,7 @@ async def _handle_tool_delete(connection: PipeConnection, message: dict[str, Any
         registry.unregister(tool_name)
 
         # Audit log
-        _log_target = _event_store or _audit_log
+        _log_target = _audit_log
         if _log_target is not None:
             _log_target.log_event({
                 "event_type": "tool_deleted",
@@ -689,7 +656,7 @@ async def _handle_tool_run(connection: PipeConnection, message: dict[str, Any]) 
         context = await _fetch_run_context(connection)
 
         # Log execution events so manual runs appear in the History tab
-        exec_logger = ExecutionLogger(connection, audit_log=_event_store or _audit_log, origin="manual")
+        exec_logger = ExecutionLogger(connection, audit_log=_audit_log, origin="manual")
         exec_logger.set_run_context(context)
         correlation_id = exec_logger.start_correlation()
         event_id = await exec_logger.log_started(tool_name, input_args)
@@ -701,7 +668,6 @@ async def _handle_tool_run(connection: PipeConnection, message: dict[str, Any]) 
             )
             if result.success:
                 await exec_logger.log_completed(event_id, result, tool_name, input_args)
-                await _capture_screenshot(connection, event_id)
             else:
                 outcome = "failed"
                 await exec_logger.log_failed(
@@ -766,7 +732,12 @@ async def _handle_tool_load(connection: PipeConnection, message: dict[str, Any])
 
 
 async def _handle_tool_update(connection: PipeConnection, message: dict[str, Any]) -> None:
-    """Handle a tool_update_request — validate, write, and re-register a tool definition."""
+    """Handle a tool_update_request — validate, write, and re-register a tool definition.
+
+    Supports renames: if ``definition['name']`` differs from the supplied
+    ``tool_name`` (the lookup key), the old JSON file is deleted and the old
+    name is unregistered before the new one is written.
+    """
     logger.debug("Handling tool_update_request")
     payload = message.get("payload", {})
     tool_name = payload.get("tool_name", "")
@@ -797,29 +768,62 @@ async def _handle_tool_update(connection: PipeConnection, message: dict[str, Any
             )
             return
 
-        # Write the updated definition to disk
+        new_name = definition.get("name", "")
+        is_rename = new_name and new_name != tool_name
+
+        # Reject renames that would clobber an existing tool — the user should
+        # delete the conflicting tool first or pick a different name.
+        if is_rename and registry.get(new_name) is not None:
+            await connection.send(
+                make_tool_update_response(
+                    False,
+                    error=(
+                        f"Cannot rename to '{new_name}': a tool with that name "
+                        "already exists. Pick a different name or delete the "
+                        "existing one first."
+                    ),
+                )
+            )
+            return
+
         tools_dir = config.tools_dir
         tools_dir.mkdir(parents=True, exist_ok=True)
-        tool_json_path = tools_dir / f"{tool_name}.json"
+
+        target_name = new_name or tool_name
+        tool_json_path = tools_dir / f"{target_name}.json"
 
         with open(tool_json_path, "w", encoding="utf-8") as f:
             json.dump(definition, f, indent=2)
 
         logger.info("Updated tool definition: %s", tool_json_path)
 
-        # Re-register in the registry
+        if is_rename:
+            # Drop the old file and registry entry. The hot-reload watcher
+            # would eventually catch up, but doing it explicitly avoids a
+            # window where both names coexist.
+            old_path = tools_dir / f"{tool_name}.json"
+            try:
+                if old_path.exists():
+                    old_path.unlink()
+                    logger.info("Removed old tool file after rename: %s", old_path)
+            except OSError:
+                logger.exception("Failed to delete old tool file %s", old_path)
+            registry.unregister(tool_name)
+
+        # Re-register the (possibly renamed) definition
         registry.register(definition)
 
         # Audit log
-        _log_target = _event_store or _audit_log
+        _log_target = _audit_log
         if _log_target is not None:
             _log_target.log_event({
-                "event_type": "tool_updated",
-                "tool_name": tool_name,
+                "event_type": "tool_renamed" if is_rename else "tool_updated",
+                "tool_name": target_name,
+                "old_name": tool_name if is_rename else None,
             })
 
         await connection.send(
-            make_tool_update_response(True, tool_name=tool_name)
+            make_tool_update_response(True, tool_name=target_name)
         )
 
     except Exception as e:
@@ -947,7 +951,7 @@ async def _handle_workflow_test(connection: PipeConnection, message: dict[str, A
         # Fetch run context from Revit
         context = await _fetch_run_context(connection)
 
-        exec_logger = ExecutionLogger(connection, audit_log=_event_store or _audit_log, origin="test")
+        exec_logger = ExecutionLogger(connection, audit_log=_audit_log, origin="test")
         exec_logger.set_run_context(context)
         correlation_id = exec_logger.start_correlation()
         engine = WorkflowEngine(dispatcher, audit_log=_audit_log, execution_logger=exec_logger)
@@ -1018,7 +1022,7 @@ async def _handle_workflow_run(connection: PipeConnection, message: dict[str, An
         context = await _fetch_run_context(connection)
 
         # Log execution events so manual workflow runs appear in the History tab
-        exec_logger = ExecutionLogger(connection, audit_log=_event_store or _audit_log, origin="manual")
+        exec_logger = ExecutionLogger(connection, audit_log=_audit_log, origin="manual")
         exec_logger.set_run_context(context)
         correlation_id = exec_logger.start_correlation()
         event_id = await exec_logger.log_started(workflow_name, input_args)
@@ -1063,29 +1067,8 @@ async def _handle_settings(connection: PipeConnection, message: dict[str, Any]) 
     """Handle a settings_request — return server configuration info."""
     logger.debug("Handling settings_request")
     try:
-        # Resolve paths to absolute for display
-        db_path = str(config.event_store_path.resolve()) if config.event_store_path else ""
-        blob_path = str(config.blob_store_dir.resolve()) if config.blob_store_dir else ""
         log_path = str(config.audit_log_dir.resolve()) if config.audit_log_dir else ""
         tools_path = str(config.tools_dir.resolve()) if config.tools_dir else ""
-
-        # Compute DB size
-        db_size_bytes = 0
-        if config.event_store_path.exists():
-            db_size_bytes = config.event_store_path.stat().st_size
-
-        # Count blobs
-        blob_count = 0
-        if config.blob_store_dir.exists():
-            blob_count = sum(1 for _ in config.blob_store_dir.rglob("*") if _.is_file())
-
-        # Check ML availability
-        ml_available = False
-        try:
-            from .store.embeddings import EmbeddingEngine
-            ml_available = EmbeddingEngine.available()
-        except Exception:
-            pass
 
         settings = {
             "pipe_name": config.pipe_name,
@@ -1094,31 +1077,9 @@ async def _handle_settings(connection: PipeConnection, message: dict[str, Any]) 
             "llm_provider": config.llm_provider,
             "llm_model": config.anthropic_model if config.llm_provider == "claude" else config.openai_model,
             "openai_base_url": config.openai_base_url,
-            "event_store_path": db_path,
-            "event_store_size_bytes": db_size_bytes,
-            "blob_store_dir": blob_path,
-            "blob_count": blob_count,
             "audit_log_dir": log_path,
-            "embedding_model": config.embedding_model,
-            "ml_available": ml_available,
-            "migrate_jsonl_on_startup": config.migrate_jsonl_on_startup,
             "watch_tools_dir": config.watch_tools_dir,
         }
-
-        # Episode/event counts from the store
-        if _event_store is not None:
-            try:
-                row = _event_store._conn.execute(
-                    "SELECT COUNT(*) FROM episodes"
-                ).fetchone()
-                settings["episode_count"] = row[0] if row else 0
-                row = _event_store._conn.execute(
-                    "SELECT COUNT(*) FROM events"
-                ).fetchone()
-                settings["event_count"] = row[0] if row else 0
-            except Exception:
-                settings["episode_count"] = 0
-                settings["event_count"] = 0
 
         await connection.send(make_settings_response(settings))
     except Exception as e:
@@ -1178,7 +1139,7 @@ async def _handle_settings_update(connection: PipeConnection, message: dict[str,
         # an API key and the user just configured one), create one now.
         conn_id = id(connection)
         if conn_id not in _sessions:
-            session = ChatSession(connection, llm_router, dispatcher, audit_log=_event_store or _audit_log)
+            session = ChatSession(connection, llm_router, dispatcher, audit_log=_audit_log)
             _sessions[conn_id] = session
             connection.set_on_chat_message(_on_chat_message)
             logger.info("ChatSession created for existing connection after settings update")
@@ -1371,11 +1332,12 @@ async def _handle_connection_toggle(connection: PipeConnection, message: dict[st
 def _register_mcp_tools() -> None:
     """Register all tools from the registry as MCP tools.
 
-    Tools with visibility 'internal' are skipped — they should not be
-    callable by the LLM.  'llm-only' and 'user' tools are both registered.
+    Tools with visibility 'internal' (preconditions/resolvers) and 'user-only'
+    (manual UI buttons) are skipped — neither should be callable by an
+    external MCP client. 'llm-only' and 'user' tools are both registered.
     """
     for definition in registry.list_tools():
-        if definition.get("visibility", "user") == "internal":
+        if definition.get("visibility", "user") in ("internal", "user-only"):
             continue
         _register_single_tool(definition)
 
@@ -1407,8 +1369,8 @@ def _register_single_tool(definition: dict[str, Any]) -> None:
 def init() -> None:
     """Initialize the server: load tools, start pipe server, create LLM router."""
     global config, registry, mcp, llm_router, pipe_server
-    global _audit_log, _event_store, _card_processor
-    global revit_adapter, pyrevit_adapter, dynamo_adapter, workflow_adapter
+    global _audit_log
+    global revit_adapter, pyrevit_adapter, dynamo_adapter, csharp_adapter, workflow_adapter
     global adapters, dispatcher, connection_manager, mcp_external_adapter
 
     config = Config.from_env()
@@ -1420,12 +1382,14 @@ def init() -> None:
     revit_adapter = RevitAddinAdapter()
     pyrevit_adapter = PyRevitAdapter()
     dynamo_adapter = DynamoAdapter()
+    csharp_adapter = CSharpAdapter()
     workflow_adapter = WorkflowAdapter(registry=registry)
 
     adapters = {
         "revit": revit_adapter,
         "pyrevit": pyrevit_adapter,
         "dynamo": dynamo_adapter,
+        "csharp": csharp_adapter,
         "workflow": workflow_adapter,
     }
 
@@ -1433,39 +1397,20 @@ def init() -> None:
 
     dynamo_adapter.set_revit_adapter(revit_adapter)
     pyrevit_adapter.set_revit_adapter(revit_adapter)
+    csharp_adapter.set_revit_adapter(revit_adapter)
     workflow_adapter.set_dispatcher(dispatcher)
 
-    # Initialize audit log (kept for backward compat)
+    # Initialize audit log
     _audit_log = AuditLog(config.audit_log_dir)
     logger.info("Audit log initialized at %s", config.audit_log_dir)
 
-    # Initialize SQLite event store + blob store
-    blob_store = BlobStore(config.blob_store_dir)
-    _event_store = SqliteEventStore(config.event_store_path, blob_store=blob_store)
-    logger.info("Event store initialized at %s", config.event_store_path)
-
-    # Migrate existing JSONL logs on startup
-    if config.migrate_jsonl_on_startup:
-        try:
-            migrator = JsonlMigrator(_event_store, config.audit_log_dir)
-            imported = migrator.migrate()
-            if imported > 0:
-                logger.info("JSONL migration imported %d events", imported)
-        except Exception:
-            logger.exception("JSONL migration failed (non-fatal)")
-
-    # Start background card/embedding processor
-    _card_processor = BackgroundCardProcessor(
-        _event_store, embedding_model=config.embedding_model
-    )
-    _card_processor.start()
-
     # Wire audit log to workflow adapter
-    workflow_adapter.set_audit_log(_event_store)
+    workflow_adapter.set_audit_log(_audit_log)
     workflow_adapter.set_registry(registry)
 
-    # Initialize MCP connection manager
-    connection_manager = ConnectionManager(_event_store, registry)
+    # Initialize MCP connection manager with JSON file store
+    conn_store = JsonConnectionStore(config.connections_file)
+    connection_manager = ConnectionManager(conn_store, registry)
     mcp_external_adapter = McpExternalAdapter(connection_manager)
     adapters["mcp"] = mcp_external_adapter
     connection_manager.load_from_db()
@@ -1539,23 +1484,11 @@ def shutdown() -> None:
         except Exception:
             logger.debug("Error stopping pipe server", exc_info=True)
 
-    if _card_processor is not None:
-        try:
-            _card_processor.stop()
-        except Exception:
-            logger.debug("Error stopping card processor", exc_info=True)
-
     if registry is not None:
         try:
             registry.stop_watching()
         except Exception:
             logger.debug("Error stopping registry watcher", exc_info=True)
-
-    if _event_store is not None:
-        try:
-            _event_store.close()
-        except Exception:
-            logger.debug("Error closing event store", exc_info=True)
 
     logger.info("Shutdown complete")
 

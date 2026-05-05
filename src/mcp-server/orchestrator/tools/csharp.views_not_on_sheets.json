@@ -1,0 +1,15 @@
+{
+  "name": "csharp.views_not_on_sheets",
+  "adapter": "csharp",
+  "description": "Documentation QC: find views that aren't placed on any sheet (orphan working views, mockups, leftover copies). Call as part of a model audit or before issuing a print package, or whenever the user asks 'which views are not on sheets', 'orphan views', or 'cleanup before deliverable'.",
+  "parameters": {
+    "type": "object",
+    "properties": {
+      "script_path": {
+        "type": "string",
+        "default": "${REPO_ROOT}\\tools\\c#\\views_not_on_sheets.cs"
+      }
+    },
+    "required": ["script_path"]
+  }
+}

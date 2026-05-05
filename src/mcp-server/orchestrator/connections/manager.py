@@ -30,8 +30,8 @@ class ConnectionManager:
     Owns the McpClientPool, handles CRUD, tool discovery/registration.
     """
 
-    def __init__(self, event_store: Any, registry: Any) -> None:
-        self._store = event_store
+    def __init__(self, connection_store: Any, registry: Any) -> None:
+        self._store = connection_store
         self._registry = registry
         self._pool = McpClientPool()
         self._connections: dict[str, McpConnection] = {}
@@ -43,11 +43,11 @@ class ConnectionManager:
     # ------------------------------------------------------------------
 
     def load_from_db(self) -> None:
-        """Load all connections from SQLite on startup."""
+        """Load all connections from the store on startup."""
         try:
             rows = self._store.load_connections()
         except Exception:
-            logger.exception("Failed to load connections from DB")
+            logger.exception("Failed to load connections from store")
             return
 
         for row in rows:
@@ -55,7 +55,7 @@ class ConnectionManager:
             # Reset runtime status on load
             conn.status = "disconnected"
             self._connections[conn.id] = conn
-        logger.info("Loaded %d connections from DB", len(self._connections))
+        logger.info("Loaded %d connections from store", len(self._connections))
 
     # ------------------------------------------------------------------
     # CRUD
@@ -189,7 +189,7 @@ class ConnectionManager:
                         headers[key.strip()] = val.strip()
 
             # Connect via pool
-            session = await self._pool.connect(
+            await self._pool.connect(
                 conn_id,
                 conn.transport,
                 command=conn.command,
@@ -199,11 +199,10 @@ class ConnectionManager:
                 headers=headers if headers else None,
             )
 
-            # Get server info
-            server_info = session.server_info
-            if server_info:
-                conn.server_name = server_info.name or ""
-                conn.server_version = server_info.version or ""
+            # Cache server identity from the InitializeResult
+            server_name, server_version = self._pool.get_server_info(conn_id)
+            conn.server_name = server_name
+            conn.server_version = server_version
 
             # Discover and register tools
             tools = await self._pool.list_tools(conn_id)
@@ -355,7 +354,7 @@ class ConnectionManager:
     # ------------------------------------------------------------------
 
     def _update_status(self, conn: McpConnection) -> None:
-        """Persist status/error changes to DB."""
+        """Persist status/error changes to the store."""
         try:
             self._store.update_connection(conn.id, {
                 "status": conn.status,

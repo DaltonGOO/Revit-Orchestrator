@@ -1,0 +1,15 @@
+{
+  "name": "csharp.project_summary",
+  "adapter": "csharp",
+  "description": "Get a high-level overview of the active Revit project: project name/number, levels with elevations, total floor area (from Rooms), counts of sheets/schedules/views, and counts of walls/doors/windows/rooms/ducts/pipes. Use as a first-pass intake when the user asks 'tell me about this model', 'brief me on this project', 'what's in this Revit file', or any time a model overview is needed.",
+  "parameters": {
+    "type": "object",
+    "properties": {
+      "script_path": {
+        "type": "string",
+        "default": "${REPO_ROOT}\\tools\\c#\\project_summary.cs"
+      }
+    },
+    "required": ["script_path"]
+  }
+}

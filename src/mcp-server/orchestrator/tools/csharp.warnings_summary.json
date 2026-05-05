@@ -1,0 +1,15 @@
+{
+  "name": "csharp.warnings_summary",
+  "adapter": "csharp",
+  "description": "Summarize Revit's project warnings (the bell-icon list) grouped by description, with a count and sample failing element IDs for each. Call as part of a model audit/QC pass, or when the user asks about 'warnings', 'errors in the model', or 'what's wrong with my Revit file'.",
+  "parameters": {
+    "type": "object",
+    "properties": {
+      "script_path": {
+        "type": "string",
+        "default": "${REPO_ROOT}\\tools\\c#\\warnings_summary.cs"
+      }
+    },
+    "required": ["script_path"]
+  }
+}

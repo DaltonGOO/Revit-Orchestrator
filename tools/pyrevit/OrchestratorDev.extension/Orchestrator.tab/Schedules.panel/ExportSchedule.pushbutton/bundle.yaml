@@ -1,0 +1,3 @@
+title: Export Schedule
+tooltip: Pick a schedule and export its rows (with ElementIds and parameter values) to JSON.
+author: BIM Coordinator

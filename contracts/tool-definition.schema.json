@@ -12,7 +12,7 @@
     },
     "adapter": {
       "type": "string",
-      "enum": ["revit", "pyrevit", "dynamo", "workflow", "mcp"],
+      "enum": ["revit", "pyrevit", "dynamo", "csharp", "workflow", "mcp"],
       "description": "Which adapter handles execution"
     },
     "description": {
@@ -225,9 +225,9 @@
     },
     "visibility": {
       "type": "string",
-      "enum": ["user", "llm-only", "internal"],
+      "enum": ["user", "llm-only", "user-only", "internal"],
       "default": "user",
-      "description": "Controls where this tool appears. 'user' = UI and LLM. 'llm-only' = LLM only. 'internal' = neither."
+      "description": "Controls where this tool appears. 'user' = UI and LLM. 'llm-only' = LLM only. 'user-only' = invokable by the application UI (e.g. a dedicated button) but hidden from the LLM and the Tools list. 'internal' = neither."
     },
     "metadata": {
       "type": "object",

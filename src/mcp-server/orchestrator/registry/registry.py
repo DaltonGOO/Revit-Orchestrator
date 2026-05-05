@@ -58,6 +58,9 @@ class ToolRegistry:
         with self._lock:
             self._tools = valid_tools
         logger.info("Registry loaded %d tools", len(valid_tools))
+        # Notify so any cached views (LLM tool catalog, MCP registration,
+        # etc.) get rebuilt against the new set.
+        self._notify_change()
 
     def get(self, name: str) -> dict[str, Any] | None:
         """Get a tool definition by name."""

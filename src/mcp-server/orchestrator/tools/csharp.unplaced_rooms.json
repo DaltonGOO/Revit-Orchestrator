@@ -1,0 +1,15 @@
+{
+  "name": "csharp.unplaced_rooms",
+  "adapter": "csharp",
+  "description": "Architectural QC: find rooms that aren't placed in the model (no location) or are placed-but-redundant (zero enclosed area). Call as part of a model audit or whenever the user asks about 'orphan rooms', 'unplaced rooms', or 'room QC'.",
+  "parameters": {
+    "type": "object",
+    "properties": {
+      "script_path": {
+        "type": "string",
+        "default": "${REPO_ROOT}\\tools\\c#\\unplaced_rooms.cs"
+      }
+    },
+    "required": ["script_path"]
+  }
+}

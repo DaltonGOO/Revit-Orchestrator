@@ -1,0 +1,22 @@
+{
+  "name": "csharp.fix_view_visibility",
+  "adapter": "csharp",
+  "description": "Apply the fix for a category not being visible in the active view: turn the category on in V/G overrides and switch the view discipline to Coordination if the category is MEP (Ducts, Pipes, Cable, Conduit). Pairs with csharp.diagnose_visibility — call this AFTER diagnose_visibility identifies the cause, when the user says 'fix it', 'apply the fix', or similar.",
+  "parameters": {
+    "type": "object",
+    "properties": {
+      "script_path": {
+        "type": "string",
+        "default": "${REPO_ROOT}\\tools\\c#\\fix_view_visibility.cs"
+      },
+      "arguments": {
+        "type": "object",
+        "properties": {
+          "category": { "type": "string", "description": "Category name to make visible (e.g. 'Ducts', 'Pipes')" }
+        },
+        "required": ["category"]
+      }
+    },
+    "required": ["script_path"]
+  }
+}

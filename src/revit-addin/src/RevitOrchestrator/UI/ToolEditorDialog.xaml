@@ -234,10 +234,9 @@
                         </Grid.ColumnDefinitions>
                         <TextBlock Text="Name:" FontSize="11" VerticalAlignment="Center" />
                         <TextBox Grid.Column="1"
-                                 Text="{Binding ToolName}"
+                                 Text="{Binding ToolName, UpdateSourceTrigger=PropertyChanged}"
                                  FontSize="11" Padding="4,3"
-                                 IsReadOnly="True"
-                                 Background="#f0f0f0" />
+                                 ToolTip="Tool name (e.g. pyrevit.export_schedule). Renaming saves under the new name and removes the old one." />
                     </Grid>
                     <Grid Margin="0,0,0,6">
                         <Grid.ColumnDefinitions>

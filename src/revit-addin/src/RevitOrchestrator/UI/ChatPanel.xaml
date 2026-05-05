@@ -175,7 +175,39 @@
                                     Background="#1a73e8"
                                     Foreground="White"
                                     FontWeight="SemiBold"
-                                    BorderThickness="0" />
+                                    BorderThickness="0">
+                                <Button.Style>
+                                    <Style TargetType="Button">
+                                        <Setter Property="Visibility" Value="Visible" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding IsWaiting}" Value="True">
+                                                <Setter Property="Visibility" Value="Collapsed" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Button.Style>
+                            </Button>
+                            <Button Grid.Column="1"
+                                    Content="Cancel"
+                                    Margin="6,0,0,0"
+                                    Padding="16,6"
+                                    Command="{Binding CancelCommand}"
+                                    Background="#F44336"
+                                    Foreground="White"
+                                    FontWeight="SemiBold"
+                                    BorderThickness="0"
+                                    ToolTip="Stop the current chat turn (use if a tool call is hung)">
+                                <Button.Style>
+                                    <Style TargetType="Button">
+                                        <Setter Property="Visibility" Value="Collapsed" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding IsWaiting}" Value="True">
+                                                <Setter Property="Visibility" Value="Visible" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Button.Style>
+                            </Button>
                         </Grid>
                     </Border>
                 </Grid>
@@ -197,6 +229,8 @@
                         <Grid>
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="Auto" />
                                 <ColumnDefinition Width="Auto" />
                                 <ColumnDefinition Width="Auto" />
                                 <ColumnDefinition Width="Auto" />
@@ -242,8 +276,20 @@
                                     FontWeight="SemiBold"
                                     FontSize="11"
                                     BorderThickness="0" />
+                            <Button Grid.Column="5"
+                                    Content="Run Graph…"
+                                    Padding="10,4"
+                                    Margin="0,0,6,0"
+                                    Command="{Binding RunDynamoDialogCommand}"
+                                    Visibility="{Binding IsDynamoToolSelected, Converter={StaticResource BoolToVisibility}}"
+                                    Background="#1a73e8"
+                                    Foreground="White"
+                                    FontWeight="SemiBold"
+                                    FontSize="11"
+                                    BorderThickness="0"
+                                    ToolTip="Open the Dynamo Player-style dialog to fill in inputs and run a graph" />
                             <!-- Compose toggle button -->
-                            <ToggleButton Grid.Column="5"
+                            <ToggleButton Grid.Column="6"
                                           Content="Compose"
                                           IsChecked="{Binding IsComposeMode}"
                                           Padding="10,4"
@@ -266,7 +312,7 @@
                                     </Style>
                                 </ToggleButton.Style>
                             </ToggleButton>
-                            <Button Grid.Column="6"
+                            <Button Grid.Column="7"
                                     Content="+ Add Tool"
                                     Padding="10,4"
                                     Command="{Binding AddToolCommand}"

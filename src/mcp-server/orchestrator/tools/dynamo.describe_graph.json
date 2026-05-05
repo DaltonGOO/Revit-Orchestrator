@@ -1,0 +1,56 @@
+{
+  "name": "dynamo.describe_graph",
+  "adapter": "dynamo",
+  "description": "Reads a Dynamo graph (.dyn file) and returns its inputs and outputs without executing it. Call this *before* dynamo.run_graph if you don't already know the input node names — the result tells you exactly what keys to put in `run_graph`'s `inputs` dict and what types they expect. Pure metadata: does not need a Revit document open and has no side effects.",
+  "version": "1.0.0",
+  "tags": ["dynamo", "automation", "metadata"],
+  "permissions": {
+    "mode": "read"
+  },
+  "side_effects": [],
+  "preconditions": [],
+  "parameters": {
+    "type": "object",
+    "properties": {
+      "graph_path": {
+        "type": "string",
+        "description": "Absolute path to the Dynamo graph file (.dyn)."
+      }
+    },
+    "required": ["graph_path"]
+  },
+  "returns": {
+    "type": "object",
+    "properties": {
+      "graph_path": { "type": "string" },
+      "name":        { "type": "string", "description": "The graph's display name." },
+      "description": { "type": "string", "description": "Author-supplied graph description (may be empty)." },
+      "inputs": {
+        "type": "array",
+        "description": "Nodes flagged 'Is Input' in Dynamo. Use the `name` field as the key when calling dynamo.run_graph.",
+        "items": {
+          "type": "object",
+          "properties": {
+            "name":        { "type": "string" },
+            "type":        { "type": "string", "description": "Normalised: string, integer, number, boolean, or unknown." },
+            "default":     { "description": "The value last saved in the graph (best treated as a hint, not a default to reuse blindly)." },
+            "description": { "type": "string" }
+          }
+        }
+      },
+      "outputs": {
+        "type": "array",
+        "description": "Nodes flagged 'Is Output' in Dynamo. Their values come back in the `outputs` dict of dynamo.run_graph's result.",
+        "items": { "type": "object" }
+      }
+    }
+  },
+  "examples": [
+    {
+      "description": "Discover what a graph takes before running it",
+      "args": {
+        "graph_path": "C:\\DynamoGraphs\\set_wall_mark.dyn"
+      }
+    }
+  ]
+}

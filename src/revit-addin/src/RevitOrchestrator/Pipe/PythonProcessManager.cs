@@ -1,5 +1,8 @@
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
+using System.Linq;
+using System.Management;
 using System.Text.Json;
 using System.Threading;
 
@@ -108,7 +111,16 @@ public sealed class PythonProcessManager : IDisposable
             catch { /* Ignore malformed config */ }
         }
 
-        // 3. Production layout: python-server/ next to the DLL
+        // 3a. Bundled exe: python-server/orchestrator.exe (packaged distribution)
+        var bundledExe = Path.Combine(addinDir, "python-server", "orchestrator.exe");
+        if (File.Exists(bundledExe))
+        {
+            var workDir = Path.Combine(addinDir, "python-server");
+            Log(addinDir, $"Resolved via bundled exe: {bundledExe}");
+            return (Path.GetFullPath(bundledExe), Path.GetFullPath(workDir));
+        }
+
+        // 3b. Production layout: python-server/ next to the DLL
         var prodPython = Path.Combine(addinDir, "python-server", ".venv", "Scripts", "python.exe");
         if (File.Exists(prodPython))
         {
@@ -219,6 +231,15 @@ public sealed class PythonProcessManager : IDisposable
 
         Log(_addinDir, "MonitorLoop started");
 
+        // Reap orchestrator processes left behind by previous Revit sessions.
+        // The pipe server uses PIPE_UNLIMITED_INSTANCES, so an orphan with a
+        // stale tool registry can grab incoming connections from this Revit's
+        // chat panel before our fresh server gets a chance — which is exactly
+        // what made csharp tools invisible in the wild. Doing this once,
+        // before LaunchProcess, makes the new server the only orchestrator
+        // listening on the pipe.
+        CleanupOrphanedOrchestrators();
+
         while (!ct.IsCancellationRequested && restartCount < MaxRestarts)
         {
             try
@@ -309,10 +330,14 @@ public sealed class PythonProcessManager : IDisposable
             _shutdownEventName = $"Global\\RevitOrchestrator_Shutdown_{Environment.ProcessId}_{Guid.NewGuid():N}";
             _shutdownEvent = new EventWaitHandle(false, EventResetMode.ManualReset, _shutdownEventName);
 
+            // Bundled exe gets simple args; python.exe needs -m orchestrator
+            var isBundledExe = _pythonPath.EndsWith("orchestrator.exe", StringComparison.OrdinalIgnoreCase);
+            var arguments = isBundledExe ? "--mode pipe" : "-m orchestrator --mode pipe";
+
             var psi = new ProcessStartInfo
             {
                 FileName = _pythonPath,
-                Arguments = "-m orchestrator --mode pipe",
+                Arguments = arguments,
                 WorkingDirectory = _workingDirectory,
                 CreateNoWindow = true,
                 UseShellExecute = false,
@@ -429,5 +454,123 @@ public sealed class PythonProcessManager : IDisposable
         _process = null;
         _shutdownEvent?.Dispose();
         _shutdownEvent = null;
+    }
+
+    /// <summary>
+    /// Find and terminate any python.exe processes running our orchestrator
+    /// whose ancestry no longer leads to a live Revit. These are leftovers
+    /// from previous Revit sessions that didn't shut down cleanly. Because
+    /// the pipe server uses PIPE_UNLIMITED_INSTANCES, an orphan can grab a
+    /// pipe connection from this Revit's chat panel and serve a stale tool
+    /// list — symptom: tool defs added recently are silently absent from
+    /// the chat panel.
+    ///
+    /// Ancestry walk: from each candidate process's parent, follow PPID
+    /// chains until we hit a non-python ancestor (typically Revit.exe) or
+    /// a dead PID. If the first non-python ancestor is alive, the candidate
+    /// has a real owner and we leave it alone. Otherwise, kill it.
+    /// </summary>
+    private void CleanupOrphanedOrchestrators()
+    {
+        try
+        {
+            var procs = QueryProcesses();
+            var ourPid = Process.GetCurrentProcess().Id;
+
+            var orphans = procs
+                .Where(p => string.Equals(p.Name, "python.exe", StringComparison.OrdinalIgnoreCase))
+                .Where(p => p.CommandLine.Contains("orchestrator --mode pipe", StringComparison.Ordinal))
+                .Where(p => p.Pid != ourPid)
+                .Where(p => IsOrphan(p, procs))
+                .ToList();
+
+            if (orphans.Count == 0)
+            {
+                Log(_addinDir, "Orphan cleanup: no orphaned orchestrator processes found");
+                return;
+            }
+
+            Log(_addinDir, $"Orphan cleanup: terminating {orphans.Count} stale orchestrator(s)");
+            foreach (var orphan in orphans)
+            {
+                try
+                {
+                    using var proc = Process.GetProcessById(orphan.Pid);
+                    proc.Kill(entireProcessTree: true);
+                    Log(_addinDir, $"  killed PID {orphan.Pid} (parent {orphan.ParentPid} dead)");
+                }
+                catch (Exception ex)
+                {
+                    Log(_addinDir, $"  could not kill PID {orphan.Pid}: {ex.Message}");
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            // Cleanup failure is never fatal — we'd rather start the new
+            // orchestrator and risk a pipe collision than fail to start at all.
+            Log(_addinDir, $"Orphan cleanup failed (non-fatal): {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// Walk the parent chain of <paramref name="candidate"/>, skipping over
+    /// other python.exe processes (so we ignore the venv-launcher in
+    /// .venv\Scripts\python.exe → real CPython chain). Returns true if the
+    /// first non-python ancestor is dead — i.e. the candidate has no live
+    /// owner.
+    /// </summary>
+    private static bool IsOrphan(ProcInfo candidate, List<ProcInfo> all)
+    {
+        var byPid = all.ToDictionary(p => p.Pid);
+        var pid = candidate.ParentPid;
+        // Walk up at most 8 levels to avoid pathological cycles.
+        for (var i = 0; i < 8; i++)
+        {
+            if (!byPid.TryGetValue(pid, out var parent))
+            {
+                // Parent isn't in the snapshot — it's dead.
+                return true;
+            }
+            if (!string.Equals(parent.Name, "python.exe", StringComparison.OrdinalIgnoreCase))
+            {
+                // First non-python ancestor (typically Revit.exe). It's
+                // listed in our snapshot, so it's alive — not an orphan.
+                return false;
+            }
+            pid = parent.ParentPid;
+        }
+        // Walked too far — assume orphan rather than risk leaving it.
+        return true;
+    }
+
+    private static List<ProcInfo> QueryProcesses()
+    {
+        var list = new List<ProcInfo>();
+        using var searcher = new ManagementObjectSearcher(
+            "SELECT ProcessId, ParentProcessId, Name, CommandLine FROM Win32_Process");
+        foreach (var item in searcher.Get())
+        {
+            try
+            {
+                list.Add(new ProcInfo
+                {
+                    Pid = Convert.ToInt32(item["ProcessId"]),
+                    ParentPid = Convert.ToInt32(item["ParentProcessId"]),
+                    Name = item["Name"]?.ToString() ?? "",
+                    CommandLine = item["CommandLine"]?.ToString() ?? "",
+                });
+            }
+            catch { /* skip processes we can't read */ }
+        }
+        return list;
+    }
+
+    private struct ProcInfo
+    {
+        public int Pid;
+        public int ParentPid;
+        public string Name;
+        public string CommandLine;
     }
 }

@@ -6,6 +6,17 @@
     <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
     <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
     <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
+    <!--
+      Required because this assembly is loaded as a plug-in into Revit (which
+      is a .NET process we don't control). Without this flag, dotnet builds
+      assume the host runtime supplies BCL packages and won't copy NuGet
+      DLLs like System.Text.Encoding.CodePages to the output directory —
+      they'd be missing at runtime and IronPython's CodecsInfo type
+      initializer fails on first encoding lookup. EnableDynamicLoading flips
+      MSBuild into "this is a self-contained plug-in" mode, copying all
+      direct package dependencies into the output.
+    -->
+    <EnableDynamicLoading>true</EnableDynamicLoading>
   </PropertyGroup>
 
   <ItemGroup>
@@ -19,9 +30,100 @@
     </Reference>
   </ItemGroup>
 
+  <!--
+    Dynamo for Revit references. Bundled with each Revit install under
+    AddIns\DynamoForRevit\. Private=false so we don't ship duplicate DLLs —
+    Dynamo loads its own copies at runtime.
+  -->
+  <ItemGroup Condition="'$(DynamoApiPath)' != ''">
+    <Reference Include="DynamoCore">
+      <HintPath>$(DynamoApiPath)\DynamoCore.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="DynamoServices">
+      <HintPath>$(DynamoApiPath)\DynamoServices.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="DynamoRevitDS">
+      <HintPath>$(DynamoApiPath)\Revit\DynamoRevitDS.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="CoreNodeModels">
+      <HintPath>$(DynamoApiPath)\nodes\CoreNodeModels.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="ProtoCore">
+      <HintPath>$(DynamoApiPath)\ProtoCore.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+  </ItemGroup>
+
   <ItemGroup>
     <PackageReference Include="System.Security.Cryptography.ProtectedData" Version="8.0.0" />
     <PackageReference Include="System.Text.Json" Version="8.0.5" />
+    <!--
+      Required to register legacy code-page encodings (Shift-JIS / 932,
+      GB2312 / 936, Windows-1252, etc.) that .NET Core/8 dropped from the
+      built-in encoding set. IronPython's CodecsInfo enumerates every
+      encoding at startup and throws "type initializer for 'CodecsInfo'"
+      if any one of them isn't constructible.
+
+      GeneratePathProperty=true exposes the package directory as
+      $(PkgSystem_Text_Encoding_CodePages) so the explicit copy target
+      below can find the RID-specific runtime DLL. We need this because
+      the .NET 8 framework reference pack ships a *reference* assembly
+      for this DLL but the actual runtime does not contain the
+      implementation, so the default build resolution silently picks the
+      reference and never copies anything to output.
+    -->
+    <PackageReference Include="System.Text.Encoding.CodePages" Version="8.0.0" GeneratePathProperty="true" />
+    <!--
+      Roslyn scripting — used by csharp.run_script to compile and run user
+      .cs files against the Revit API. CSharpScript handles globals
+      (uiapp/doc/inputs) and last-expression-as-return so a tool script
+      can be a few lines without class boilerplate.
+
+      Pinned to 4.10.x to match the Microsoft.CodeAnalysis pyRevit ships
+      (4.1000.24.x, which has assembly version 4.10.0.0). Mismatched
+      Roslyn versions in the same Revit AppDomain cause FileLoadException
+      0x80131621 once either add-in initializes — whichever loads first
+      pins the version, and the second fails to bind.
+    -->
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp.Scripting" Version="4.10.0" />
+    <!--
+      WMI access for the orphaned-orchestrator cleanup in
+      PythonProcessManager.CleanupOrphans. Lets us read the command line of
+      other python.exe processes so we can identify ones running our
+      orchestrator with no live ancestor and reap them before launching.
+    -->
+    <PackageReference Include="System.Management" Version="8.0.0" />
   </ItemGroup>
+
+  <!--
+    Force-copy NuGet runtime DLLs to the output directory.
+
+    Default `dotnet build` (and `dotnet publish` framework-dependent) skips
+    DLLs for any package that's part of the framework reference set
+    (e.g. anything that ships with Microsoft.NETCore.App). That's correct
+    for normal .NET apps where the runtime supplies them, but Revit's
+    process can't find them. It loads us as a managed plug-in and only
+    looks alongside our DLL. When System.Text.Encoding.CodePages.dll is
+    missing at runtime, IronPython's CodecsInfo type init crashes on the
+    first encoding lookup, which is exactly the pyRevit failure mode.
+
+    Walks @(RuntimeCopyLocalItems), the resolved set of would-copy-if-not-
+    framework-supplied DLLs, and forces them into $(OutDir).
+  -->
+  <Target Name="ForceCopyPackageRuntimeDeps" AfterTargets="Build">
+    <ItemGroup>
+      <_RevitOrchestratorRuntimeDeps Include="@(RuntimeCopyLocalItems)" />
+      <_RevitOrchestratorRuntimeDeps Include="$(PkgSystem_Text_Encoding_CodePages)\runtimes\win\lib\net8.0\System.Text.Encoding.CodePages.dll"
+                                     Condition="Exists('$(PkgSystem_Text_Encoding_CodePages)\runtimes\win\lib\net8.0\System.Text.Encoding.CodePages.dll')" />
+    </ItemGroup>
+    <Copy SourceFiles="@(_RevitOrchestratorRuntimeDeps)"
+          DestinationFolder="$(OutDir)"
+          SkipUnchangedFiles="true"
+          Condition="'@(_RevitOrchestratorRuntimeDeps)' != ''" />
+  </Target>
 
 </Project>

@@ -1,0 +1,67 @@
+{
+  "name": "dynamo.run_graph_interactive",
+  "adapter": "dynamo",
+  "description": "Opens the Run Graph dialog in Revit. Invoked from the 'Run Graph…' button on the Tools tab, NOT from chat — the LLM should use dynamo.run_graph instead and ask the user for missing inputs in conversation.",
+  "version": "1.0.0",
+  "visibility": "user-only",
+  "tags": ["dynamo", "automation", "interactive"],
+  "permissions": {
+    "mode": "write"
+  },
+  "side_effects": ["creates_elements", "modifies_elements"],
+  "preconditions": [
+    { "check": "document_open" }
+  ],
+  "parameters": {
+    "type": "object",
+    "properties": {
+      "graph_path": {
+        "type": "string",
+        "description": "Absolute path to the Dynamo graph file (.dyn)."
+      },
+      "suggested_inputs": {
+        "type": "object",
+        "description": "Optional values to pre-populate the form, keyed by input node Name (same names used by dynamo.run_graph). Call dynamo.describe_graph first if you don't know the input names.",
+        "additionalProperties": true
+      }
+    },
+    "required": ["graph_path"]
+  },
+  "returns": {
+    "type": "object",
+    "properties": {
+      "status": {
+        "type": "string",
+        "enum": ["ran", "cancelled", "error"],
+        "description": "What happened: 'ran' = user clicked Run and the graph executed; 'cancelled' = user closed the dialog without running; 'error' = something failed."
+      },
+      "inputs_used": {
+        "type": "object",
+        "description": "The values the user actually entered (when status='ran'). May differ from suggested_inputs."
+      },
+      "result": {
+        "type": "object",
+        "description": "The dynamo.run_graph result payload (when status='ran')."
+      },
+      "error": {
+        "type": "string",
+        "description": "Human-readable error string (when status='error')."
+      }
+    }
+  },
+  "examples": [
+    {
+      "description": "Let the user fill in inputs themselves",
+      "args": {
+        "graph_path": "C:\\DynamoGraphs\\set_wall_mark.dyn"
+      }
+    },
+    {
+      "description": "Suggest values from the conversation, but let the user confirm",
+      "args": {
+        "graph_path": "C:\\DynamoGraphs\\set_wall_mark.dyn",
+        "suggested_inputs": { "String": "Zone-A" }
+      }
+    }
+  ]
+}

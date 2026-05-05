@@ -12,7 +12,7 @@
 ### 1. Clone the Repository
 
 ```bash
-git clone https://github.com/your-org/Revit-Orchestrator.git
+git clone https://github.com/DaltonGOO/Revit-Orchestrator.git
 cd Revit-Orchestrator
 ```
 

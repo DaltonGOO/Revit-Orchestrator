@@ -25,6 +25,7 @@ class McpClientPool:
     def __init__(self) -> None:
         self._sessions: dict[str, ClientSession] = {}
         self._stacks: dict[str, AsyncExitStack] = {}
+        self._init_results: dict[str, Any] = {}
 
     async def connect(
         self,
@@ -71,9 +72,10 @@ class McpClientPool:
             session = await stack.enter_async_context(
                 ClientSession(read_stream, write_stream)
             )
-            await session.initialize()
+            init_result = await session.initialize()
 
             self._sessions[conn_id] = session
+            self._init_results[conn_id] = init_result
             logger.info("MCP client session connected for %s via %s", conn_id, transport)
             return session
 
@@ -89,6 +91,7 @@ class McpClientPool:
     async def disconnect(self, conn_id: str) -> None:
         """Close session + transport for a connection."""
         self._sessions.pop(conn_id, None)
+        self._init_results.pop(conn_id, None)
         stack = self._stacks.pop(conn_id, None)
         if stack is not None:
             try:
@@ -100,6 +103,29 @@ class McpClientPool:
     def get_session(self, conn_id: str) -> ClientSession | None:
         """Return the active session for a connection, or None."""
         return self._sessions.get(conn_id)
+
+    def get_server_info(self, conn_id: str) -> tuple[str, str]:
+        """Return ``(server_name, server_version)`` for a connected session.
+
+        Reads from the cached ``InitializeResult``. Returns empty strings if
+        the connection isn't active or the server didn't advertise itself.
+        Tolerates both ``serverInfo`` and ``server_info`` attribute spellings
+        across mcp-sdk versions.
+        """
+        init_result = self._init_results.get(conn_id)
+        if init_result is None:
+            return ("", "")
+
+        server_info = (
+            getattr(init_result, "serverInfo", None)
+            or getattr(init_result, "server_info", None)
+        )
+        if server_info is None:
+            return ("", "")
+
+        name = getattr(server_info, "name", "") or ""
+        version = getattr(server_info, "version", "") or ""
+        return (name, version)
 
     async def call_tool(
         self,

@@ -1,0 +1,101 @@
+<Window x:Class="RevitOrchestrator.UI.RunDynamoGraphDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Run Dynamo Graph"
+        Width="540"
+        Height="640"
+        WindowStartupLocation="CenterOwner"
+        ResizeMode="CanResize"
+        MinWidth="460"
+        MinHeight="420"
+        ShowInTaskbar="False">
+
+    <Grid Margin="16">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <!-- Header: graph path + describe button -->
+        <StackPanel Grid.Row="0">
+            <TextBlock Text="Graph"
+                       FontWeight="Bold" FontSize="14"
+                       Foreground="#1a73e8" Margin="0,0,0,6" />
+            <Grid Margin="0,0,0,4">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <TextBox Grid.Column="0" x:Name="GraphPathTextBox" Padding="6,4"
+                         ToolTip="Absolute path to the .dyn file" />
+                <Button Grid.Column="1" Content="Browse…" Padding="12,4" Margin="6,0,0,0"
+                        Click="BrowseButton_Click" />
+            </Grid>
+            <Grid Margin="0,0,0,12">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <TextBlock Grid.Column="0"
+                           x:Name="GraphSummaryText"
+                           Text="Click 'Load Inputs' or change the path to discover inputs."
+                           Foreground="#666"
+                           FontSize="11"
+                           TextWrapping="Wrap"
+                           VerticalAlignment="Center" />
+                <Button Grid.Column="1"
+                        Content="Load Inputs"
+                        Padding="12,4"
+                        Margin="6,0,0,0"
+                        x:Name="LoadInputsButton"
+                        Click="LoadInputsButton_Click" />
+            </Grid>
+            <Separator Margin="0,0,0,12" />
+        </StackPanel>
+
+        <!-- Inputs form (scrolls when there are many) -->
+        <ScrollViewer Grid.Row="1"
+                      VerticalScrollBarVisibility="Auto"
+                      HorizontalScrollBarVisibility="Disabled">
+            <StackPanel x:Name="InputsPanel">
+                <TextBlock x:Name="InputsPlaceholderText"
+                           Text="Pick a graph above to load its inputs."
+                           Foreground="#888"
+                           FontStyle="Italic"
+                           Margin="0,12,0,0" />
+            </StackPanel>
+        </ScrollViewer>
+
+        <!-- Status / result strip -->
+        <Border Grid.Row="2"
+                Padding="10,8"
+                Margin="0,12,0,0"
+                Background="#f3f5f8"
+                BorderBrush="#dde1e7"
+                BorderThickness="1"
+                CornerRadius="4">
+            <TextBlock x:Name="StatusText"
+                       Text=""
+                       Foreground="#1f2933"
+                       FontSize="12"
+                       TextWrapping="Wrap" />
+        </Border>
+
+        <!-- Buttons -->
+        <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,12,0,0">
+            <Button x:Name="CancelButton" Content="Cancel" Padding="24,8" Margin="0,0,8,0"
+                    Click="CancelButton_Click" />
+            <Button x:Name="RunButton"
+                    Content="Run"
+                    Padding="24,8"
+                    Background="#1a73e8"
+                    Foreground="White"
+                    FontWeight="SemiBold"
+                    BorderThickness="0"
+                    IsEnabled="False"
+                    Click="RunButton_Click" />
+        </StackPanel>
+    </Grid>
+</Window>

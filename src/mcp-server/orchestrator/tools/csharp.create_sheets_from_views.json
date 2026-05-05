@@ -1,0 +1,24 @@
+{
+  "name": "csharp.create_sheets_from_views",
+  "adapter": "csharp",
+  "description": "Bulk-create one new sheet per supplied view, place that view on the sheet, and auto-number the sheets with a prefix and starting number. The whole batch is one Transaction (one undo step). Use after csharp.list_views, or whenever the user wants to generate a sheet set ('make sheets for all my elevations', 'one sheet per detail view', etc.).",
+  "parameters": {
+    "type": "object",
+    "properties": {
+      "script_path": {
+        "type": "string",
+        "default": "${REPO_ROOT}\\tools\\c#\\create_sheets_from_views.cs"
+      },
+      "arguments": {
+        "type": "object",
+        "properties": {
+          "view_ids":     { "type": "array",   "items": { "type": "integer" }, "description": "Element IDs of views to create sheets for. Get these from csharp.list_views." },
+          "sheet_prefix": { "type": "string",  "default": "A-",    "description": "Prefix for sheet numbers (e.g. 'A-', 'E-', 'M-')" },
+          "start_number": { "type": "integer", "default": 101,     "description": "Starting sheet number (e.g. 101 → A-101, A-102, …)" }
+        },
+        "required": ["view_ids"]
+      }
+    },
+    "required": ["script_path"]
+  }
+}

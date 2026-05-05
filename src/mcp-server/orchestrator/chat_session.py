@@ -15,12 +15,21 @@ from .pipe.protocol import (
     make_chat_response,
     make_chat_status,
     make_context_request,
-    make_screenshot_request,
 )
 
 logger = logging.getLogger(__name__)
 
 MAX_TOOL_ITERATIONS = 10
+
+# Bail-out thresholds. The agent typically thrashes through unrelated fallback
+# tools when something fails — these caps make it stop and ask the user
+# instead, surfacing the real error and saving tokens.
+MAX_CONSECUTIVE_FAILURES = 2
+MAX_TOOL_CALLS_PER_TURN = 5
+
+# Trim error strings shown back to the user in the abort message — the full
+# error is already in the audit log if they need it.
+_ERROR_PREVIEW_LEN = 200
 
 
 class ChatSession:
@@ -44,7 +53,6 @@ class ChatSession:
         self._dispatcher = dispatcher
         self._history: list[Message] = []
         self._logger = ExecutionLogger(connection, audit_log=audit_log)
-        self._audit_log = audit_log
 
     async def handle_user_message(self, message: dict[str, Any]) -> None:
         """Handle an incoming chat_message from the C# client."""
@@ -114,6 +122,9 @@ class ChatSession:
         correlation_id = self._logger.start_correlation()
         logger.debug("Started agentic loop with correlation_id=%s", correlation_id)
 
+        consecutive_failures = 0
+        all_calls: list[dict[str, Any]] = []
+
         for iteration in range(MAX_TOOL_ITERATIONS):
             logger.debug("Agentic loop iteration %d, calling LLM with %d messages", iteration, len(self._history))
             response = await self._router.chat(self._history)
@@ -156,8 +167,7 @@ class ChatSession:
                 # Log execution completed or failed
                 if result.success:
                     await self._logger.log_completed(event_id, result, tc.name, tc.arguments)
-                    # Capture screenshot after successful tool execution
-                    await self._capture_screenshot(event_id)
+                    consecutive_failures = 0
                 else:
                     await self._logger.log_failed(
                         event_id,
@@ -165,6 +175,7 @@ class ChatSession:
                         tc.name,
                         tc.arguments,
                     )
+                    consecutive_failures += 1
 
                 result_text = json.dumps(result.to_dict())
 
@@ -175,7 +186,40 @@ class ChatSession:
                         tool_call_id=tc.id,
                     )
                 )
+
+                call_summary = {
+                    "name": tc.name,
+                    "success": result.success,
+                    "error": (
+                        result.error_message
+                        if not result.success and result.error_message
+                        else None
+                    ),
+                }
                 tool_summaries.append({"name": tc.name, "success": result.success})
+                all_calls.append(call_summary)
+
+                # Bail-out checks: stop the loop when the agent is clearly
+                # thrashing instead of letting it burn another LLM round-trip.
+                if consecutive_failures >= MAX_CONSECUTIVE_FAILURES:
+                    await self._abort_loop(
+                        reason=(
+                            f"{consecutive_failures} tool calls failed in a row"
+                        ),
+                        all_calls=all_calls,
+                        correlation_id=correlation_id,
+                    )
+                    return
+                if len(all_calls) >= MAX_TOOL_CALLS_PER_TURN:
+                    await self._abort_loop(
+                        reason=(
+                            f"reached the {MAX_TOOL_CALLS_PER_TURN}-call limit "
+                            "for one turn"
+                        ),
+                        all_calls=all_calls,
+                        correlation_id=correlation_id,
+                    )
+                    return
 
             # Send interim response showing tool calls executed
             await self._send_response(
@@ -199,47 +243,41 @@ class ChatSession:
         )
         self._logger.log_correlation_summary(correlation_id)
 
-    async def _capture_screenshot(self, event_id: str) -> None:
-        """Request a viewport screenshot from C# and store as an artifact."""
-        if self._audit_log is None:
-            logger.debug("Screenshot skipped: no audit log")
-            return
-        if not hasattr(self._audit_log, "blob_store"):
-            logger.debug("Screenshot skipped: audit log has no blob_store attribute")
-            return
-        blob_store = self._audit_log.blob_store
-        if blob_store is None:
-            logger.debug("Screenshot skipped: blob_store is None")
-            return
+    async def _abort_loop(
+        self,
+        *,
+        reason: str,
+        all_calls: list[dict[str, Any]],
+        correlation_id: str,
+    ) -> None:
+        """Stop the agentic loop and tell the user what was tried.
 
-        try:
-            msg = make_screenshot_request()
-            response = await self._connection.send_and_wait(msg, timeout=10.0)
-            payload = response.get("payload", {})
-            if not payload.get("success"):
-                logger.debug("Screenshot skipped: C# returned success=false")
-                return
+        Used when the agent has hit a thrashing condition (consecutive
+        failures or too many tool calls in one turn). Surfaces a numbered
+        recap so the user can decide what to do, instead of letting the
+        agent keep burning round-trips on unrelated fallbacks.
+        """
+        lines = [
+            f"I'm stopping to check in — {reason}.",
+            "",
+            "Here's what I tried:",
+        ]
+        for i, c in enumerate(all_calls, 1):
+            icon = "✓" if c["success"] else "✗"
+            line = f"{i}. {icon} `{c['name']}`"
+            if not c["success"] and c.get("error"):
+                err = c["error"]
+                if len(err) > _ERROR_PREVIEW_LEN:
+                    err = err[: _ERROR_PREVIEW_LEN - 1] + "…"
+                line += f" — {err}"
+            lines.append(line)
+        lines.append("")
+        lines.append("What would you like me to do?")
+        msg = "\n".join(lines)
 
-            image_b64 = payload.get("image_base64")
-            if not image_b64:
-                logger.debug("Screenshot skipped: no image_base64 in response")
-                return
-
-            import base64
-            image_bytes = base64.b64decode(image_b64)
-            sha, rel_path = blob_store.put(image_bytes, ext=".png", compress=False)
-
-            self._audit_log.add_artifact(
-                event_id=event_id,
-                kind="screenshot",
-                sha256=sha,
-                path=rel_path,
-                size_bytes=len(image_bytes),
-                mime_type=payload.get("mime_type", "image/png"),
-            )
-            logger.debug("Stored screenshot artifact for event %s (%d bytes)", event_id, len(image_bytes))
-        except Exception:
-            logger.exception("Screenshot capture failed (non-fatal)")
+        self._history.append(Message(role="assistant", content=msg))
+        await self._send_response(msg, is_final=True)
+        self._logger.log_correlation_summary(correlation_id)
 
     async def _send_status(self, status: str) -> None:
         """Send a chat_status message to the client."""

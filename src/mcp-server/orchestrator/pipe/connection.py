@@ -20,6 +20,7 @@ from .protocol import (
     decode_header,
     decode_payload,
     encode_message,
+    make_chat_response,
     make_pong,
 )
 
@@ -91,6 +92,10 @@ class PipeConnection:
         self._write_lock = threading.Lock()
         self._chat_msg_queue: thread_queue.Queue[dict[str, Any]] = thread_queue.Queue()
         self._chat_thread: threading.Thread | None = None
+        # Captured by the chat worker so chat_cancel can interrupt the
+        # in-flight task across threads.
+        self._chat_loop: asyncio.AbstractEventLoop | None = None
+        self._current_chat_task: asyncio.Task[Any] | None = None
 
     @classmethod
     def from_win32_handle(
@@ -254,6 +259,9 @@ class PipeConnection:
         """
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
+        # Expose the loop so the read-loop thread can schedule a cancel
+        # on the in-flight task via call_soon_threadsafe.
+        self._chat_loop = loop
         logger.info("Chat worker thread started")
         try:
             while self._connected:
@@ -307,14 +315,38 @@ class PipeConnection:
                     handler = self._on_chat_message
 
                 if handler:
+                    task = loop.create_task(handler(self, message))
+                    # Only chat_message tasks should be user-cancellable —
+                    # tool list / settings / etc. complete quickly and
+                    # cancelling them mid-flight would leak partial state.
+                    if msg_type == "chat_message":
+                        self._current_chat_task = task
                     try:
-                        loop.run_until_complete(handler(self, message))
+                        loop.run_until_complete(task)
+                    except asyncio.CancelledError:
+                        logger.info("Chat task cancelled by user")
+                        try:
+                            loop.run_until_complete(
+                                self.send(
+                                    make_chat_response(
+                                        "_Cancelled by user._", is_final=True
+                                    )
+                                )
+                            )
+                        except Exception:
+                            logger.exception(
+                                "Failed to send cancellation notice to client"
+                            )
                     except Exception:
                         logger.exception("Error handling %s message", msg_type)
+                    finally:
+                        if msg_type == "chat_message":
+                            self._current_chat_task = None
                 else:
                     logger.error("Message type=%s received but no handler is set!", msg_type)
         finally:
             loop.close()
+            self._chat_loop = None
             logger.info("Chat worker thread stopped")
 
     async def _read_loop(self) -> None:
@@ -399,6 +431,20 @@ class PipeConnection:
         if msg_type == "pong":
             return
 
+        # chat_cancel must be handled out-of-band — the chat worker thread is
+        # blocked inside run_until_complete on the very task we want to cancel,
+        # so it can't pull this message off the queue. Schedule the cancel on
+        # the chat loop from here (the read-loop thread).
+        if msg_type == "chat_cancel":
+            chat_loop = self._chat_loop
+            task = self._current_chat_task
+            if chat_loop is not None and task is not None and not task.done():
+                logger.info("Received chat_cancel — cancelling in-flight chat task")
+                chat_loop.call_soon_threadsafe(task.cancel)
+            else:
+                logger.debug("Received chat_cancel but no chat task is in flight")
+            return
+
         if msg_type == "tool_result":
             call_id = message.get("payload", {}).get("call_id")
             if call_id and call_id in self._pending:
@@ -413,6 +459,13 @@ class PipeConnection:
 
         # Resolve mapping_response by call_id (reconciliation flow)
         if msg_type == "mapping_response":
+            call_id = message.get("payload", {}).get("call_id")
+            if call_id and call_id in self._pending:
+                self._pending[call_id].set_result(message)
+                return
+
+        # Resolve dynamo_run_dialog_result by call_id (interactive Run Graph flow)
+        if msg_type == "dynamo_run_dialog_result":
             call_id = message.get("payload", {}).get("call_id")
             if call_id and call_id in self._pending:
                 self._pending[call_id].set_result(message)

@@ -1,8 +1,8 @@
 {
   "name": "dynamo.run_graph",
   "adapter": "dynamo",
-  "description": "Runs a Dynamo graph (.dyn file) within the active Revit session. Input parameters can be passed to override Dynamo input nodes.",
-  "version": "1.0.0",
+  "description": "Runs a Dynamo graph (.dyn file) within the active Revit session. Optional `inputs` are mapped by name to nodes flagged 'IsInput' in Dynamo and applied before the run. Outputs are read from any node flagged 'IsOutput'. Supports primitive input value types: string, integer, number, and boolean. If you don't already know the graph's input node names, call `dynamo.describe_graph` first to discover them — do not guess input keys.",
+  "version": "2.0.0",
   "tags": ["dynamo", "automation"],
   "permissions": {
     "mode": "write"
@@ -16,11 +16,11 @@
     "properties": {
       "graph_path": {
         "type": "string",
-        "description": "Absolute path to the Dynamo graph file (.dyn)"
+        "description": "Absolute path to the Dynamo graph file (.dyn)."
       },
       "inputs": {
         "type": "object",
-        "description": "Key-value pairs mapping Dynamo input node names to their values",
+        "description": "Optional key-value pairs. Keys must match the *Name* of nodes flagged as inputs in Dynamo (right-click node → 'Is Input'). Values must be string, integer, number, or boolean — matching the input node's value type.",
         "additionalProperties": true
       }
     },
@@ -29,16 +29,37 @@
   "returns": {
     "type": "object",
     "properties": {
-      "outputs": { "type": "object" },
-      "message": { "type": "string" }
+      "message": { "type": "string", "description": "Human-readable summary of the run." },
+      "graph_path": { "type": "string" },
+      "inputs_applied": {
+        "type": "array",
+        "items": { "type": "string" },
+        "description": "Names of inputs that were successfully applied to the graph."
+      },
+      "unknown_inputs": {
+        "type": "array",
+        "items": { "type": "string" },
+        "description": "Input names from the request that did not match any IsInput-flagged node."
+      },
+      "outputs": {
+        "type": "object",
+        "description": "Map of output node Name → value, populated from nodes flagged 'Is Output' in Dynamo. Empty if the graph has no output nodes.",
+        "additionalProperties": true
+      }
     }
   },
   "examples": [
     {
-      "description": "Run a graph that places furniture",
+      "description": "Run a graph with no inputs (fire-and-forget)",
       "args": {
-        "graph_path": "C:\\DynamoGraphs\\place_furniture.dyn",
-        "inputs": { "Room Number": "101", "Furniture Type": "Desk" }
+        "graph_path": "C:\\DynamoGraphs\\refresh_views.dyn"
+      }
+    },
+    {
+      "description": "Run a graph that takes a single string input named 'String' and writes it to the Mark parameter on every wall",
+      "args": {
+        "graph_path": "C:\\DynamoGraphs\\set_wall_mark.dyn",
+        "inputs": { "String": "Zone-A" }
       }
     }
   ]

@@ -44,6 +44,7 @@ public sealed class ToolManagerViewModel : INotifyPropertyChanged
         DeleteToolCommand = new RelayCommand(OnDeleteTool, () => SelectedTool != null);
         EditToolCommand = new RelayCommand(OnEditTool, () => SelectedTool != null);
         RunToolCommand = new RelayCommand(OnRunTool, () => SelectedTool != null);
+        RunDynamoDialogCommand = new RelayCommand(OnRunDynamoDialog, () => IsDynamoToolSelected);
         ClearSearchCommand = new RelayCommand(() => SearchText = string.Empty);
         ToggleFavoriteCommand = new RelayCommand<ToolInfo>(OnToggleFavorite);
         ToggleComposeModeCommand = new RelayCommand(OnToggleComposeMode);
@@ -121,11 +122,18 @@ public sealed class ToolManagerViewModel : INotifyPropertyChanged
         {
             _selectedTool = value;
             OnPropertyChanged();
+            OnPropertyChanged(nameof(IsDynamoToolSelected));
             (DeleteToolCommand as RelayCommand)?.RaiseCanExecuteChanged();
             (EditToolCommand as RelayCommand)?.RaiseCanExecuteChanged();
             (RunToolCommand as RelayCommand)?.RaiseCanExecuteChanged();
+            (RunDynamoDialogCommand as RelayCommand)?.RaiseCanExecuteChanged();
         }
     }
+
+    /// <summary>True when the selected tool is a Dynamo tool — drives the Run Graph button visibility.</summary>
+    public bool IsDynamoToolSelected =>
+        SelectedTool != null
+        && string.Equals(SelectedTool.Adapter, "dynamo", StringComparison.OrdinalIgnoreCase);
 
     public bool IsLoading
     {
@@ -181,6 +189,7 @@ public sealed class ToolManagerViewModel : INotifyPropertyChanged
     public ICommand DeleteToolCommand { get; }
     public ICommand EditToolCommand { get; }
     public ICommand RunToolCommand { get; }
+    public ICommand RunDynamoDialogCommand { get; }
     public ICommand ClearSearchCommand { get; }
     public ICommand ToggleFavoriteCommand { get; }
     public ICommand ToggleComposeModeCommand { get; }
@@ -306,6 +315,40 @@ public sealed class ToolManagerViewModel : INotifyPropertyChanged
         {
             IsLoading = false;
             StatusText = $"Error: {ex.Message}";
+        }
+    }
+
+    /// <summary>
+    /// Open the Dynamo Run Graph dialog for the selected dynamo-adapter tool.
+    ///
+    /// If the tool's <c>graph_path</c> parameter declares a JSON Schema
+    /// <c>default</c> (wrapper tools like <c>dynamo.update_parameter_value</c>
+    /// do), the dialog opens with that path pre-filled and auto-discovers the
+    /// graph's inputs — the user just fills them in and clicks Run. The
+    /// generic <c>dynamo.run_graph</c> tool has no default, so the dialog
+    /// opens empty and the user picks a .dyn manually.
+    /// </summary>
+    private void OnRunDynamoDialog()
+    {
+        if (!IsDynamoToolSelected) return;
+
+        string? graphPath = null;
+        if (SelectedTool?.ParameterSchema.TryGetValue("graph_path", out var pp) == true
+            && pp.DefaultValue is string dv && !string.IsNullOrWhiteSpace(dv))
+        {
+            graphPath = dv;
+        }
+
+        try
+        {
+            var dialog = new RunDynamoGraphDialog(graphPath: graphPath, suggestedInputs: null);
+            dialog.Topmost = true;
+            dialog.ShowDialog();
+            // The dialog itself dispatches the run; nothing more to do here.
+        }
+        catch (Exception ex)
+        {
+            StatusText = $"Could not open Run Graph dialog: {ex.Message}";
         }
     }
 
@@ -678,7 +721,10 @@ public sealed class ToolManagerViewModel : INotifyPropertyChanged
                 StatusText = "Saving tool definition...";
                 if (App.Instance?.PipeListener is { } listener && listener.IsConnected)
                 {
-                    await listener.UpdateToolAsync(vm.ToolName, dialog.ResultDefinition);
+                    // Pass the original name as the lookup key — the server
+                    // detects a rename (vm.ToolName != vm.OriginalName) and
+                    // migrates the JSON file + registry entry.
+                    await listener.UpdateToolAsync(vm.OriginalName, dialog.ResultDefinition);
                 }
                 else
                 {

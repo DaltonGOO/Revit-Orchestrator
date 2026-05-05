@@ -5,13 +5,25 @@ from __future__ import annotations
 import json
 import logging
 import os
+import sys
 from dataclasses import dataclass, field
 from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
 # Anchor to the ``src/mcp-server/`` directory (parent of the ``orchestrator`` package).
-_PROJECT_DIR = Path(__file__).resolve().parent.parent
+# In a PyInstaller bundle, _MEIPASS is the extraction/bundle root.
+if getattr(sys, "frozen", False):
+    _PROJECT_DIR = Path(sys._MEIPASS)  # type: ignore[attr-defined]
+else:
+    _PROJECT_DIR = Path(__file__).resolve().parent.parent
+
+
+def _default_tools_dir() -> Path:
+    """Resolve the tools directory, handling PyInstaller bundles."""
+    if getattr(sys, "frozen", False):
+        return Path(sys._MEIPASS) / "orchestrator" / "tools"  # type: ignore[attr-defined]
+    return Path(__file__).parent / "tools"
 
 
 # Keys that are persisted to / loaded from the settings file.
@@ -30,7 +42,7 @@ class Config:
     """Server configuration loaded from environment variables."""
 
     pipe_name: str = r"\\.\pipe\RevitOrchestrator"
-    tools_dir: Path = field(default_factory=lambda: Path(__file__).parent / "tools")
+    tools_dir: Path = field(default_factory=_default_tools_dir)
     handlers_dir: Path = field(default_factory=lambda: Path(__file__).parent / "handlers")
 
     # LLM settings
@@ -59,13 +71,8 @@ class Config:
     # Audit logging
     audit_log_dir: Path = field(default_factory=lambda: _PROJECT_DIR / "logs")
 
-    # Event store (SQLite)
-    event_store_path: Path = field(default_factory=lambda: _PROJECT_DIR / "data" / "orchestrator.db")
-    blob_store_dir: Path = field(default_factory=lambda: _PROJECT_DIR / "data" / "blobs")
-    migrate_jsonl_on_startup: bool = True
-
-    # Embeddings
-    embedding_model: str = "all-MiniLM-L6-v2"
+    # Connection store (JSON file)
+    connections_file: Path = field(default_factory=lambda: _PROJECT_DIR / "data" / "connections.json")
 
     # Logging
     log_dir: Path = field(default_factory=lambda: Path(
@@ -126,17 +133,8 @@ class Config:
             audit_log_dir=Path(
                 os.getenv("ORCHESTRATOR_AUDIT_LOG_DIR", str(defaults.audit_log_dir))
             ),
-            event_store_path=Path(
-                os.getenv("ORCHESTRATOR_EVENT_STORE_PATH", str(defaults.event_store_path))
-            ),
-            blob_store_dir=Path(
-                os.getenv("ORCHESTRATOR_BLOB_STORE_DIR", str(defaults.blob_store_dir))
-            ),
-            migrate_jsonl_on_startup=os.getenv(
-                "ORCHESTRATOR_MIGRATE_JSONL", "true"
-            ).lower() == "true",
-            embedding_model=os.getenv(
-                "ORCHESTRATOR_EMBEDDING_MODEL", defaults.embedding_model
+            connections_file=Path(
+                os.getenv("ORCHESTRATOR_CONNECTIONS_FILE", str(defaults.connections_file))
             ),
             log_dir=Path(
                 os.getenv("ORCHESTRATOR_LOG_DIR", str(defaults.log_dir))

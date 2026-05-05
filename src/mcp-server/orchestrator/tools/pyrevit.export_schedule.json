@@ -1,0 +1,40 @@
+{
+  "name": "pyrevit.export_schedule",
+  "adapter": "pyrevit",
+  "description": "Export a Revit schedule to JSON.\n\nRevit Orchestrator tool. The function `run` is the entry point \u2014 see\ntools/pyrevit/README.md for the full convention.\n\nInputs (passed as the `inputs` dict):\n    schedule_name (str): name of the schedule to export. If omitted, the\n        return value lists all available schedules.\n    output_path (str, optional): file path to write the JSON to. If omitted,\n        the result is returned inline only.\n\nReturns:\n    dict with `schedule`, `headers`, `rows`, `row_count`, and (if written)\n    `file`. If the requested schedule isn't found, returns a dict with an\n    `error` key plus `available_schedules` so the caller can pick a real one.\n\nDetected parameters: uiapp, doc, inputs",
+  "parameters": {
+    "type": "object",
+    "properties": {
+      "script_path": {
+        "type": "string",
+        "description": "Path to the Python script.",
+        "default": "${REPO_ROOT}\\tools\\pyrevit\\export_schedule.py"
+      },
+      "arguments": {
+        "type": "object",
+        "description": "Key-value arguments to pass to the script",
+        "additionalProperties": {
+          "type": "string"
+        }
+      }
+    },
+    "required": [
+      "script_path"
+    ]
+  },
+  "returns": {
+    "type": "object",
+    "properties": {
+      "stdout": {
+        "type": "string"
+      },
+      "stderr": {
+        "type": "string"
+      },
+      "exit_code": {
+        "type": "integer"
+      }
+    }
+  },
+  "examples": []
+}

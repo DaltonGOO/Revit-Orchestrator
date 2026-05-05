@@ -3,7 +3,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="MCP Connection"
         Width="480"
-        Height="520"
+        Height="640"
         WindowStartupLocation="CenterOwner"
         ResizeMode="NoResize"
         ShowInTaskbar="False">
@@ -16,6 +16,47 @@
 
         <ScrollViewer Grid.Row="0" VerticalScrollBarVisibility="Auto">
             <StackPanel>
+
+                <!-- Preset -->
+                <TextBlock Text="Preset"
+                           FontWeight="Bold" FontSize="14"
+                           Foreground="#1a73e8" Margin="0,0,0,8" />
+                <ComboBox x:Name="PresetComboBox" Margin="0,0,0,4"
+                          SelectionChanged="PresetComboBox_SelectionChanged">
+                    <ComboBoxItem Tag="custom" Content="Custom (configure manually)" IsSelected="True" />
+                    <ComboBoxItem Tag="filesystem" Content="Filesystem — read/write files in a folder" />
+                    <ComboBoxItem Tag="fetch" Content="Fetch — fetch HTTP URLs" />
+                    <ComboBoxItem Tag="memory" Content="Memory — scratch key/value store" />
+                    <ComboBoxItem Tag="time" Content="Time — date/time and timezones" />
+                    <ComboBoxItem Tag="everything" Content="Everything — MCP test server (smoke test)" />
+                </ComboBox>
+                <TextBlock x:Name="PresetHintText"
+                           Text="Pick a preset to auto-fill the fields below, or choose Custom to configure manually."
+                           Foreground="#666" FontSize="11"
+                           TextWrapping="Wrap" Margin="0,0,0,16" />
+
+                <!-- Filesystem folder picker (only visible for Filesystem preset) -->
+                <StackPanel x:Name="FolderPickerPanel" Visibility="Collapsed" Margin="0,0,0,12">
+                    <TextBlock Text="Allowed Folder"
+                               FontWeight="Bold" FontSize="14"
+                               Foreground="#1a73e8" Margin="0,0,0,8" />
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <TextBox Grid.Column="0" x:Name="FolderPathTextBox" Padding="6,4"
+                                 ToolTip="The folder the server is allowed to read/write."
+                                 TextChanged="FolderPathTextBox_TextChanged" />
+                        <Button Grid.Column="1" Content="Browse…" Padding="12,4" Margin="6,0,0,0"
+                                Click="BrowseFolderButton_Click" />
+                    </Grid>
+                    <TextBlock Text="The server can only access files inside this folder. Pick a narrow path — never the root of your drive."
+                               Foreground="#666" FontSize="11"
+                               TextWrapping="Wrap" Margin="0,4,0,0" />
+                </StackPanel>
+
+                <Separator Margin="0,0,0,12" />
 
                 <!-- Name -->
                 <TextBlock Text="Connection Name"

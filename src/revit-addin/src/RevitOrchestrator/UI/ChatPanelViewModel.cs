@@ -26,6 +26,7 @@ public sealed class ChatPanelViewModel : INotifyPropertyChanged
     public ChatPanelViewModel()
     {
         SendCommand = new RelayCommand(OnSend, () => !string.IsNullOrWhiteSpace(InputText) && !IsWaiting);
+        CancelCommand = new RelayCommand(OnCancel, () => IsWaiting);
 
         // Subscribe to pipe listener events
         if (App.Instance?.PipeListener is { } listener)
@@ -115,10 +116,12 @@ public sealed class ChatPanelViewModel : INotifyPropertyChanged
             _isWaiting = value;
             OnPropertyChanged();
             (SendCommand as RelayCommand)?.RaiseCanExecuteChanged();
+            (CancelCommand as RelayCommand)?.RaiseCanExecuteChanged();
         }
     }
 
     public ICommand SendCommand { get; }
+    public ICommand CancelCommand { get; }
 
     private async void OnSend()
     {
@@ -155,6 +158,35 @@ public sealed class ChatPanelViewModel : INotifyPropertyChanged
             {
                 Role = "system",
                 Content = $"Failed to send message: {ex.Message}",
+            });
+        }
+    }
+
+    private async void OnCancel()
+    {
+        if (!IsWaiting) return;
+        if (App.Instance?.PipeListener is not { } listener || !listener.IsConnected)
+        {
+            // No connection to cancel through — just unfreeze locally.
+            IsWaiting = false;
+            return;
+        }
+
+        try
+        {
+            await listener.SendChatCancelAsync();
+            // Don't clear IsWaiting here — Python will send a "Cancelled by
+            // user" chat_response, and the existing OnChatResponse handler
+            // flips IsWaiting off. That keeps the UX consistent if the cancel
+            // races with an in-flight response.
+        }
+        catch (Exception ex)
+        {
+            IsWaiting = false;
+            Messages.Add(new ChatMessage
+            {
+                Role = "system",
+                Content = $"Failed to cancel: {ex.Message}",
             });
         }
     }
