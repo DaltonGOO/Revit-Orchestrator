@@ -201,5 +201,5 @@ Write-Host ""
 Write-Host "Send this zip to your tester. They should:" -ForegroundColor Cyan
 Write-Host "  1. Unzip anywhere"
 Write-Host "  2. Right-click install.ps1 -> Run with PowerShell"
-Write-Host "  3. Set their ANTHROPIC_API_KEY or OPENAI_API_KEY env var"
-Write-Host "  4. Open Revit $RevitVersion"
+Write-Host "  3. Open Revit $RevitVersion, click the Orchestrator panel,"
+Write-Host "     open Settings (gear icon) and paste their API key"
