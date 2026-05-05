@@ -88,12 +88,12 @@ Write-Host "  Wrote: $AddinManifest" -ForegroundColor Gray
 Write-Host ""
 Write-Host "Installation complete!" -ForegroundColor Green
 Write-Host ""
-Write-Host "Before opening Revit, set your LLM API key as an environment variable:" -ForegroundColor Cyan
+Write-Host "Next steps:" -ForegroundColor Cyan
 Write-Host ""
-Write-Host "  For Claude (recommended):" -ForegroundColor White
-Write-Host '    [System.Environment]::SetEnvironmentVariable("ANTHROPIC_API_KEY", "sk-ant-...", "User")' -ForegroundColor Gray
+Write-Host "  1. Open Revit $RevitVersion - the Orchestrator panel will appear in the ribbon." -ForegroundColor White
+Write-Host "  2. Click the Settings gear in the chat panel." -ForegroundColor White
+Write-Host "  3. Pick your provider (Claude, OpenAI, or OpenAI-compatible for Ollama / LM Studio)," -ForegroundColor White
+Write-Host "     enter your API key, and click Apply." -ForegroundColor White
 Write-Host ""
-Write-Host "  For OpenAI:" -ForegroundColor White
-Write-Host '    [System.Environment]::SetEnvironmentVariable("OPENAI_API_KEY", "sk-...", "User")' -ForegroundColor Gray
-Write-Host ""
-Write-Host "Then open Revit $RevitVersion - the Orchestrator panel will appear automatically." -ForegroundColor Cyan
+Write-Host "  (The key is stored DPAPI-encrypted under your Windows user." -ForegroundColor Gray
+Write-Host "   ANTHROPIC_API_KEY / OPENAI_API_KEY env vars also work if you prefer.)" -ForegroundColor Gray

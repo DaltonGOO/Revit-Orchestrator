@@ -59,20 +59,9 @@ dotnet build -p:RevitVersion=2025 -c Release
 
 ### Configure your LLM
 
-```bash
-# Claude
-set ANTHROPIC_API_KEY=sk-ant-...
+Open Revit, click the Orchestrator panel, then the gear icon. The Settings dialog lets you pick a provider (Claude, OpenAI, or OpenAI-compatible for Ollama / LM Studio / llama.cpp), set the model, paste your API key, and — for local models — enter the base URL (e.g. `http://localhost:11434/v1` for Ollama). Keys are stored DPAPI-encrypted under your Windows user.
 
-# or OpenAI
-set OPENAI_API_KEY=sk-...
-set ORCHESTRATOR_LLM_PROVIDER=openai
-
-# or a local model via an OpenAI-compatible server (Ollama, LM Studio, ...)
-set ORCHESTRATOR_LLM_PROVIDER=openai
-set OPENAI_BASE_URL=http://localhost:11434/v1
-set OPENAI_MODEL=llama3.1
-set OPENAI_API_KEY=ollama        :: any non-empty string is fine
-```
+If you'd rather configure via environment variables, the same settings are read from `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `OPENAI_BASE_URL`, `OPENAI_MODEL`, and `ORCHESTRATOR_LLM_PROVIDER`.
 
 ### Run
 
