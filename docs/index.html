@@ -3,8 +3,8 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Revit Orchestrator — Connect LLMs to Autodesk Revit</title>
-  <meta name="description" content="Open-source MCP server and Revit add-in that lets LLMs read and modify Revit models through a tool-based, schema-validated, multi-adapter architecture.">
+  <title>Revit Orchestrator — AI for Autodesk Revit</title>
+  <meta name="description" content="Open-source bridge that lets AI assistants like Claude and ChatGPT read and edit your Revit models — using the C# scripts, pyRevit tools, and Dynamo graphs you already have.">
   <link rel="stylesheet" href="style.css">
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' x2='1' y1='0' y2='1'%3E%3Cstop offset='0' stop-color='%233a7bd5'/%3E%3Cstop offset='1' stop-color='%2300d2ff'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='32' height='32' rx='7' fill='url(%23g)'/%3E%3Ctext x='50%25' y='58%25' text-anchor='middle' font-family='Segoe UI,Arial' font-size='17' font-weight='700' fill='white'%3ER%3C/text%3E%3C/svg%3E">
 </head>
@@ -18,12 +18,10 @@
       <span>Revit Orchestrator</span>
     </a>
     <div class="nav-links">
-      <a href="#what">What it is</a>
-      <a href="#architecture">Architecture</a>
-      <a href="#adapters">Adapters</a>
-      <a href="#start">Get started</a>
-      <a href="getting-started.html">Docs</a>
-      <a href="mcp-connections.html">MCP connections</a>
+      <a href="#what">What it does</a>
+      <a href="#how">How it works</a>
+      <a href="#tools">Sample tools</a>
+      <a href="#get">Get it</a>
       <a href="https://github.com/DaltonGOO/Revit-Orchestrator" target="_blank" rel="noopener">GitHub &uarr;</a>
     </div>
   </div>
@@ -33,57 +31,57 @@
 <header class="container">
   <div class="site-hero">
     <span class="hero-eyebrow">Open Source &middot; MIT License</span>
-    <h1 id="hero-title" class="site-title">Connect LLMs to Autodesk Revit</h1>
+    <h1 id="hero-title" class="site-title">AI assistants, in Revit.</h1>
     <span class="title-underline"></span>
     <p class="site-desc">
-      Revit Orchestrator is an open-source MCP server and Revit add-in that
-      lets AI assistants read and modify Revit models through a
-      schema-validated, multi-adapter tool architecture &mdash; covering the
-      Revit API, pyRevit scripts, Dynamo graphs, and composed workflows.
+      Revit Orchestrator lets you talk to your Revit model. Ask Claude or
+      ChatGPT to audit a project, place sheets, fix view visibility, or run
+      one of your existing pyRevit or Dynamo tools &mdash; in plain English,
+      right inside Revit.
     </p>
     <div class="hero-links">
-      <a class="hero-btn" href="#start">Get started</a>
+      <a class="hero-btn" href="#get">Get it</a>
       <a class="hero-btn ghost" href="https://github.com/DaltonGOO/Revit-Orchestrator" target="_blank" rel="noopener">View on GitHub</a>
     </div>
   </div>
 </header>
 
-<!-- What it is -->
+<!-- What it does -->
 <section class="section" id="what">
   <div class="container">
     <div class="section-head">
-      <span class="kicker">What it is</span>
-      <h2>One bridge. Every Revit automation.</h2>
-      <p>An AI-friendly interface to the work you already do in Revit.</p>
+      <span class="kicker">What it does</span>
+      <h2>Ask. Run. Done.</h2>
+      <p>An AI sidekick that actually reaches into your model.</p>
     </div>
 
     <div class="grid grid-3">
       <div class="card">
-        <div class="icon">AI</div>
-        <h3>Talk to Revit</h3>
-        <p>Claude or OpenAI calls registered tools through the Model Context Protocol. The LLM gets typed schemas, examples, and side-effect declarations &mdash; not a free pass to your model.</p>
-      </div>
-      <div class="card">
-        <div class="icon">+</div>
-        <h3>Extend in minutes</h3>
-        <p>Drop a JSON file in <code>tools/</code> and a hot-reload watcher registers it instantly. Wrap a C# command, a pyRevit script, or a Dynamo graph &mdash; same contract.</p>
+        <div class="icon">?</div>
+        <h3>Ask in plain English</h3>
+        <p>"How many walls are on level 2?" "Find all views not on a sheet." "Show me the project warnings." The assistant answers from your live model &mdash; no scripting, no menus.</p>
       </div>
       <div class="card">
         <div class="icon">&#10003;</div>
-        <h3>Governed by schema</h3>
-        <p>Every call is validated against JSON Schema, gated by permissions and preconditions, tracked with model-change deltas, and routed across the named-pipe IPC boundary on the right thread.</p>
+        <h3>Audit &amp; fix</h3>
+        <p>Spot orphan rooms, missing fire ratings, hidden categories, and other QC issues in seconds. Then ask the assistant to fix them &mdash; it edits the model in a real, undo-able transaction.</p>
+      </div>
+      <div class="card">
+        <div class="icon">+</div>
+        <h3>Reuse what you have</h3>
+        <p>Wrap an existing pyRevit script, Dynamo graph, or C# command in one small JSON file and the assistant can call it. No need to throw out the automation you've already built.</p>
       </div>
     </div>
   </div>
 </section>
 
-<!-- Architecture -->
-<section class="section" id="architecture" style="background: linear-gradient(180deg, transparent 0%, #eef3fa 50%, transparent 100%);">
+<!-- How it works -->
+<section class="section" id="how" style="background: linear-gradient(180deg, transparent 0%, #eef3fa 50%, transparent 100%);">
   <div class="container">
     <div class="section-head">
-      <span class="kicker">Architecture</span>
-      <h2>Three processes, two boundaries, one tool catalog</h2>
-      <p>The LLM speaks MCP to a Python server, which talks to a C# add-in over a named pipe.</p>
+      <span class="kicker">How it works</span>
+      <h2>The AI talks to a translator that talks to Revit.</h2>
+      <p>Three pieces, with the heavy lifting hidden behind the scenes.</p>
     </div>
 
     <div class="arch-wrap">
@@ -98,48 +96,44 @@
           </marker>
         </defs>
 
-        <!-- Boxes -->
         <g font-family="Segoe UI, Arial, sans-serif">
           <!-- LLM -->
           <rect x="30" y="80" width="240" height="120" rx="14" fill="#fff" stroke="#3a7bd5" stroke-width="2"/>
-          <text x="150" y="120" text-anchor="middle" font-size="18" font-weight="700" fill="#1f2933">LLM Provider</text>
-          <text x="150" y="146" text-anchor="middle" font-size="13" fill="#52606d">Claude &middot; OpenAI</text>
-          <text x="150" y="172" text-anchor="middle" font-size="12" fill="#7a8794">MCP client (stdio)</text>
+          <text x="150" y="120" text-anchor="middle" font-size="18" font-weight="700" fill="#1f2933">AI Assistant</text>
+          <text x="150" y="146" text-anchor="middle" font-size="13" fill="#52606d">Claude &middot; ChatGPT</text>
+          <text x="150" y="172" text-anchor="middle" font-size="12" fill="#7a8794">Picks the right tool</text>
 
           <!-- MCP Server -->
           <rect x="370" y="60" width="240" height="160" rx="14" fill="url(#g1)" stroke="#1f2933" stroke-width="0"/>
-          <text x="490" y="100" text-anchor="middle" font-size="18" font-weight="700" fill="#fff">Python MCP Server</text>
-          <text x="490" y="124" text-anchor="middle" font-size="13" fill="#eaf6ff">Registry &middot; Dispatcher</text>
-          <text x="490" y="148" text-anchor="middle" font-size="13" fill="#eaf6ff">Schema validator</text>
-          <text x="490" y="172" text-anchor="middle" font-size="13" fill="#eaf6ff">Adapter routing</text>
-          <text x="490" y="196" text-anchor="middle" font-size="12" fill="#dff0fb">tools/*.json &uarr; hot reload</text>
+          <text x="490" y="100" text-anchor="middle" font-size="18" font-weight="700" fill="#fff">Orchestrator</text>
+          <text x="490" y="124" text-anchor="middle" font-size="13" fill="#eaf6ff">Tool catalog</text>
+          <text x="490" y="148" text-anchor="middle" font-size="13" fill="#eaf6ff">Safety checks</text>
+          <text x="490" y="172" text-anchor="middle" font-size="13" fill="#eaf6ff">Routing &amp; logging</text>
+          <text x="490" y="196" text-anchor="middle" font-size="12" fill="#dff0fb">Add a tool, it shows up.</text>
 
           <!-- Add-in -->
           <rect x="710" y="80" width="240" height="120" rx="14" fill="#fff" stroke="#3a7bd5" stroke-width="2"/>
-          <text x="830" y="120" text-anchor="middle" font-size="18" font-weight="700" fill="#1f2933">C# Revit Add-in</text>
-          <text x="830" y="146" text-anchor="middle" font-size="13" fill="#52606d">ExternalEvent bridge</text>
-          <text x="830" y="172" text-anchor="middle" font-size="12" fill="#7a8794">In-process Revit API</text>
+          <text x="830" y="120" text-anchor="middle" font-size="18" font-weight="700" fill="#1f2933">Revit Add-in</text>
+          <text x="830" y="146" text-anchor="middle" font-size="13" fill="#52606d">Runs the action</text>
+          <text x="830" y="172" text-anchor="middle" font-size="12" fill="#7a8794">Inside Revit, on the right thread</text>
 
-          <!-- Adapters strip -->
+          <!-- Tool kinds strip -->
           <rect x="370" y="250" width="240" height="80" rx="10" fill="#eef3fa" stroke="#cfd8e3"/>
-          <text x="490" y="276" text-anchor="middle" font-size="13" font-weight="700" fill="#3a7bd5">Adapters</text>
-          <text x="490" y="298" text-anchor="middle" font-size="12" fill="#52606d">revit &middot; pyrevit &middot; dynamo</text>
-          <text x="490" y="316" text-anchor="middle" font-size="12" fill="#52606d">workflow</text>
+          <text x="490" y="276" text-anchor="middle" font-size="13" font-weight="700" fill="#3a7bd5">Tool kinds</text>
+          <text x="490" y="298" text-anchor="middle" font-size="12" fill="#52606d">C# &middot; pyRevit &middot; Dynamo</text>
+          <text x="490" y="316" text-anchor="middle" font-size="12" fill="#52606d">Multi-step workflows</text>
 
-          <!-- Commands strip -->
+          <!-- Examples strip -->
           <rect x="710" y="250" width="240" height="80" rx="10" fill="#eef3fa" stroke="#cfd8e3"/>
-          <text x="830" y="276" text-anchor="middle" font-size="13" font-weight="700" fill="#3a7bd5">Revit Commands</text>
-          <text x="830" y="298" text-anchor="middle" font-size="12" fill="#52606d">CreateWall &middot; GetInfo</text>
-          <text x="830" y="316" text-anchor="middle" font-size="12" fill="#52606d">PlaceFamily &middot; ...</text>
+          <text x="830" y="276" text-anchor="middle" font-size="13" font-weight="700" fill="#3a7bd5">Real actions</text>
+          <text x="830" y="298" text-anchor="middle" font-size="12" fill="#52606d">Place sheets &middot; Fix views</text>
+          <text x="830" y="316" text-anchor="middle" font-size="12" fill="#52606d">Audit warnings &middot; Set params</text>
 
           <!-- Connectors -->
           <line x1="270" y1="140" x2="370" y2="140" stroke="#3a7bd5" stroke-width="2" marker-end="url(#arrow)"/>
           <line x1="370" y1="155" x2="270" y2="155" stroke="#3a7bd5" stroke-width="2" marker-end="url(#arrow)"/>
-          <text x="320" y="130" text-anchor="middle" font-size="11" fill="#52606d">MCP</text>
-
           <line x1="610" y1="140" x2="710" y2="140" stroke="#3a7bd5" stroke-width="2" marker-end="url(#arrow)"/>
           <line x1="710" y1="155" x2="610" y2="155" stroke="#3a7bd5" stroke-width="2" marker-end="url(#arrow)"/>
-          <text x="660" y="130" text-anchor="middle" font-size="11" fill="#52606d">Named Pipe (JSON)</text>
 
           <line x1="490" y1="220" x2="490" y2="250" stroke="#cfd8e3" stroke-width="2" stroke-dasharray="4 4"/>
           <line x1="830" y1="220" x2="830" y2="250" stroke="#cfd8e3" stroke-width="2" stroke-dasharray="4 4"/>
@@ -147,206 +141,115 @@
       </svg>
     </div>
 
-    <div class="grid grid-3" style="margin-top: 1.5rem;">
-      <div class="card">
-        <span class="tag">Python MCP server</span>
-        <h3>Registry &amp; dispatch</h3>
-        <p>Loads tool definitions from <code>tools/*.json</code>, validates calls against JSON Schema, runs preconditions, and routes to the right adapter.</p>
-      </div>
-      <div class="card">
-        <span class="tag">Named pipe IPC</span>
-        <h3>Length-prefixed JSON</h3>
-        <p>Communication uses Windows Named Pipes with 4-byte LE length prefix and UTF-8 JSON. UUID correlation matches request to response.</p>
-      </div>
-      <div class="card">
-        <span class="tag">C# add-in</span>
-        <h3>ExternalEvent bridge</h3>
-        <p>The pipe runs on a background thread; an <code>ExternalEvent</code> hops back to the Revit main thread to execute API calls inside transactions.</p>
-      </div>
-    </div>
-  </div>
-</section>
-
-<!-- Adapters -->
-<section class="section" id="adapters">
-  <div class="container">
-    <div class="section-head">
-      <span class="kicker">Adapters</span>
-      <h2>Wrap the Revit automation you already have</h2>
-      <p>A tool's <code>adapter</code> field decides how it runs &mdash; same contract, different runtime.</p>
-    </div>
-
-    <div class="grid grid-4">
-      <div class="card">
-        <span class="chip">revit</span>
-        <h3>C# Revit API</h3>
-        <p>Direct access to the Revit API through a typed C# command class. Best for element creation, queries, and model edits inside a transaction.</p>
-      </div>
-      <div class="card">
-        <span class="chip alt">pyrevit</span>
-        <h3>pyRevit scripts</h3>
-        <p>Reuse existing IronPython scripts. Arguments are passed as environment variables; <code>stdout</code> and <code>stderr</code> are returned to the caller.</p>
-      </div>
-      <div class="card">
-        <span class="chip alt">dynamo</span>
-        <h3>Dynamo graphs</h3>
-        <p>Run a <code>.dyn</code> graph with parameterized inputs. Input node names become argument keys; outputs flow back to the orchestrator.</p>
-      </div>
-      <div class="card">
-        <span class="chip muted">workflow</span>
-        <h3>Composed flows</h3>
-        <p>Declarative multi-step workflows with bindings between steps, guards, retries, and aggregated governance. Calls any other registered tool.</p>
-      </div>
-    </div>
-  </div>
-</section>
-
-<!-- Tool definition sample -->
-<section class="section" style="background: linear-gradient(180deg, transparent 0%, #eef3fa 50%, transparent 100%);">
-  <div class="container">
-    <div class="feature-row">
-      <div>
-        <span class="kicker">Tool definition</span>
-        <h3>One JSON file, one new capability</h3>
-        <p>
-          The dispatcher reads tool definitions and exposes them as MCP tools.
-          Description, parameter schema, permissions, side effects,
-          preconditions, and examples all live alongside each other &mdash;
-          which means the LLM, the UI, and the audit log all see the same
-          contract.
-        </p>
-        <ul>
-          <li>Hot-reloaded by a filesystem watcher</li>
-          <li>Validated against JSON Schema before dispatch</li>
-          <li>Categorized with permissions, side effects, and preconditions</li>
-          <li>Documented in-place with runnable examples</li>
-        </ul>
-        <p>
-          <a href="tool-developer-guide.html">Full tool developer guide &rarr;</a>
-        </p>
-      </div>
-      <div>
-<pre><code><span class="tok-key">"name"</span>: <span class="tok-str">"revit.create_wall"</span>,
-<span class="tok-key">"adapter"</span>: <span class="tok-str">"revit"</span>,
-<span class="tok-key">"description"</span>: <span class="tok-str">"Creates a wall in the active document
-                between two points with a height."</span>,
-<span class="tok-key">"permissions"</span>: { <span class="tok-key">"mode"</span>: <span class="tok-str">"write"</span>,
-                  <span class="tok-key">"categories"</span>: [<span class="tok-str">"Walls"</span>] },
-<span class="tok-key">"side_effects"</span>: [<span class="tok-str">"creates_elements"</span>],
-<span class="tok-key">"preconditions"</span>: [{ <span class="tok-key">"check"</span>: <span class="tok-str">"document_open"</span> }],
-<span class="tok-key">"parameters"</span>: {
-  <span class="tok-key">"type"</span>: <span class="tok-str">"object"</span>,
-  <span class="tok-key">"properties"</span>: {
-    <span class="tok-key">"start_point"</span>: { <span class="tok-key">"type"</span>: <span class="tok-str">"array"</span>, <span class="tok-key">"minItems"</span>: <span class="tok-num">3</span> },
-    <span class="tok-key">"end_point"</span>:   { <span class="tok-key">"type"</span>: <span class="tok-str">"array"</span>, <span class="tok-key">"minItems"</span>: <span class="tok-num">3</span> },
-    <span class="tok-key">"height"</span>:      { <span class="tok-key">"type"</span>: <span class="tok-str">"number"</span>, <span class="tok-key">"minimum"</span>: <span class="tok-num">0</span> },
-    <span class="tok-key">"wall_type"</span>:   { <span class="tok-key">"type"</span>: <span class="tok-str">"string"</span> }
-  },
-  <span class="tok-key">"required"</span>: [<span class="tok-str">"start_point"</span>, <span class="tok-str">"end_point"</span>, <span class="tok-str">"height"</span>]
-},
-<span class="tok-key">"examples"</span>: [{
-  <span class="tok-key">"description"</span>: <span class="tok-str">"10ft wall along the X axis"</span>,
-  <span class="tok-key">"args"</span>: { <span class="tok-key">"start_point"</span>: [<span class="tok-num">0</span>,<span class="tok-num">0</span>,<span class="tok-num">0</span>],
-            <span class="tok-key">"end_point"</span>: [<span class="tok-num">20</span>,<span class="tok-num">0</span>,<span class="tok-num">0</span>],
-            <span class="tok-key">"height"</span>: <span class="tok-num">10.0</span> }
-}]</code></pre>
-      </div>
-    </div>
-  </div>
-</section>
-
-<!-- Design pillars -->
-<section class="section">
-  <div class="container">
-    <div class="section-head">
-      <span class="kicker">Design pillars</span>
-      <h2>Structure, stability, and scale</h2>
-      <p>The shape of the codebase, in three words.</p>
-    </div>
-
-    <div class="grid grid-3">
-      <div class="card">
-        <div class="icon">S</div>
-        <h3>Structure</h3>
-        <p>Every tool is a JSON contract; the dispatcher is a single entry point; adapters are interchangeable. The LLM, the UI, and workflows all consume the same registry.</p>
-      </div>
-      <div class="card">
-        <div class="icon">S</div>
-        <h3>Stability</h3>
-        <p>JSON Schema validation, preconditions, and permission gates run before any Revit transaction. The named-pipe protocol uses UUID correlation and explicit timeouts so failures surface as structured errors, not crashes.</p>
-      </div>
-      <div class="card">
-        <div class="icon">S</div>
-        <h3>Scale</h3>
-        <p>Hot-reloaded tool definitions, multi-version Revit support via conditional compilation, and a workflow engine for composing steps mean teams can grow the catalog without changing the core.</p>
-      </div>
-    </div>
-  </div>
-</section>
-
-<!-- Get started -->
-<section class="section" id="start" style="background: linear-gradient(180deg, transparent 0%, #eef3fa 50%, transparent 100%);">
-  <div class="container">
-    <div class="section-head">
-      <span class="kicker">Get started</span>
-      <h2>Up and running in a few commands</h2>
-      <p>You'll need Python 3.11+, .NET 8 SDK, Revit 2025 or 2026, and a Claude or OpenAI API key.</p>
-    </div>
-
-    <div class="feature-row">
-      <div>
-        <h3>1. Clone &amp; install</h3>
-<pre><code><span class="tok-com"># clone the repo</span>
-git clone https://github.com/DaltonGOO/Revit-Orchestrator.git
-cd Revit-Orchestrator
-
-<span class="tok-com"># install the Python MCP server</span>
-cd src/mcp-server
-pip install -e ".[dev]"</code></pre>
-
-        <h3>2. Build the Revit add-in</h3>
-<pre><code>cd src/revit-addin
-dotnet build -p:RevitVersion=2025 -c Release</code></pre>
-      </div>
-
-      <div>
-        <h3>3. Configure your LLM</h3>
-<pre><code><span class="tok-com"># Claude</span>
-set ANTHROPIC_API_KEY=sk-ant-...
-
-<span class="tok-com"># or OpenAI</span>
-set OPENAI_API_KEY=sk-...
-set ORCHESTRATOR_LLM_PROVIDER=openai</code></pre>
-
-        <h3>4. Start the server &amp; launch Revit</h3>
-<pre><code>cd src/mcp-server
-python -m orchestrator.server
-
-<span class="tok-com"># Then open Revit and click the
-# Orchestrator panel in the ribbon.</span></code></pre>
-      </div>
-    </div>
-
-    <p style="text-align:center; margin-top: 1.5rem;">
-      <a class="hero-btn" href="getting-started.html">Full setup guide &rarr;</a>
+    <p class="arch-caption">
+      The AI assistant doesn't touch Revit directly. It picks a tool from the
+      Orchestrator's catalog, the Orchestrator validates the request, and the
+      Revit add-in runs it on the main Revit thread inside a real transaction
+      &mdash; so every change is undo-able and logged.
     </p>
   </div>
 </section>
 
-<!-- Docs/CTA -->
-<section class="section">
+<!-- Sample tools -->
+<section class="section" id="tools">
   <div class="container">
-    <div class="cta-strip">
-      <h2>Read the docs</h2>
-      <p>Architecture details, tool authoring, workflows, and the pipe protocol.</p>
-      <div class="hero-links">
-        <a class="hero-btn" href="architecture.html">Architecture</a>
-        <a class="hero-btn" href="getting-started.html">Getting started</a>
-        <a class="hero-btn" href="tool-developer-guide.html">Tool developer guide</a>
-        <a class="hero-btn" href="adding-tools.html">Adding tools</a>
-        <a class="hero-btn" href="mcp-connections.html">MCP connections</a>
+    <div class="section-head">
+      <span class="kicker">Sample tools</span>
+      <h2>Three flavors. Same conversation.</h2>
+      <p>Each kind of tool is just a folder of scripts in the repo. Drop yours in &mdash; the assistant sees it.</p>
+    </div>
+
+    <div class="grid grid-3">
+      <div class="card">
+        <span class="chip">C#</span>
+        <h3>Revit API scripts</h3>
+        <p>Small <code>.cs</code> files using the Revit API directly. Best for fast, typed model edits and queries.</p>
+        <ul>
+          <li>project_summary &mdash; levels, sheets, area, counts</li>
+          <li>warnings_summary &mdash; the bell-icon list, grouped</li>
+          <li>views_not_on_sheets &mdash; orphan view cleanup</li>
+          <li>create_sheets_from_views &mdash; bulk-make a sheet set</li>
+        </ul>
+        <p>
+          <a href="https://github.com/DaltonGOO/Revit-Orchestrator/tree/main/tools/c%23" target="_blank" rel="noopener">Browse the C# samples &rarr;</a>
+        </p>
+      </div>
+
+      <div class="card">
+        <span class="chip alt">pyRevit</span>
+        <h3>Python scripts</h3>
+        <p>If you already write pyRevit, the assistant can run those scripts unchanged. Arguments come in, results come back.</p>
+        <ul>
+          <li>export_schedule &mdash; any schedule to JSON</li>
+          <li>your existing pyRevit toolbar buttons</li>
+          <li>shared library code in <code>lib/</code></li>
+        </ul>
+        <p>
+          <a href="https://github.com/DaltonGOO/Revit-Orchestrator/tree/main/tools/pyrevit" target="_blank" rel="noopener">Browse the pyRevit samples &rarr;</a>
+        </p>
+      </div>
+
+      <div class="card">
+        <span class="chip alt">Dynamo</span>
+        <h3>Dynamo graphs</h3>
+        <p>Run a <code>.dyn</code> graph by name. The assistant figures out the input nodes, fills them, runs the graph, and reads back the outputs.</p>
+        <ul>
+          <li>Update Parameter Value &mdash; bulk edit any parameter</li>
+          <li>your existing graphs, dropped in as-is</li>
+        </ul>
+        <p>
+          <a href="https://github.com/DaltonGOO/Revit-Orchestrator/tree/main/tools/dynamo" target="_blank" rel="noopener">Browse the Dynamo samples &rarr;</a>
+        </p>
       </div>
     </div>
+  </div>
+</section>
+
+<!-- Get it -->
+<section class="section" id="get" style="background: linear-gradient(180deg, transparent 0%, #eef3fa 50%, transparent 100%);">
+  <div class="container">
+    <div class="section-head">
+      <span class="kicker">Get it</span>
+      <h2>Install in two minutes.</h2>
+      <p>No Python, no .NET SDK, no build tools. Download, unzip, run one script.</p>
+    </div>
+
+    <div class="install-steps">
+      <div class="step">
+        <span class="step-num">1</span>
+        <div>
+          <h3>Download the latest release</h3>
+          <p>Grab the zip from <a href="https://github.com/DaltonGOO/Revit-Orchestrator/releases/latest" target="_blank" rel="noopener">the releases page</a>.</p>
+        </div>
+      </div>
+      <div class="step">
+        <span class="step-num">2</span>
+        <div>
+          <h3>Unzip and run install.ps1</h3>
+          <p>Right-click <code>install.ps1</code> and choose <em>Run with PowerShell</em>. It copies everything into the right Revit folder.</p>
+        </div>
+      </div>
+      <div class="step">
+        <span class="step-num">3</span>
+        <div>
+          <h3>Set your API key</h3>
+          <p>Add <code>ANTHROPIC_API_KEY</code> (Claude) or <code>OPENAI_API_KEY</code> (ChatGPT) as a Windows user environment variable. The installer prints the exact command.</p>
+        </div>
+      </div>
+      <div class="step">
+        <span class="step-num">4</span>
+        <div>
+          <h3>Open Revit</h3>
+          <p>The Orchestrator panel appears in the ribbon. Click it, type a question, watch it work.</p>
+        </div>
+      </div>
+    </div>
+
+    <p class="bottom-cta">
+      Want the deeper details &mdash; tool authoring, the pipe protocol, the
+      schema, MCP connections?
+      <a href="https://github.com/DaltonGOO/Revit-Orchestrator" target="_blank" rel="noopener">Read the source on GitHub &rarr;</a>
+    </p>
   </div>
 </section>
 

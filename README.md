@@ -32,7 +32,7 @@ Revit Orchestrator is an open-source bridge between Large Language Models and Au
                                           workflow
 ```
 
-Read the full overview at [docs/architecture.html](https://daltongoo.github.io/Revit-Orchestrator/architecture.html).
+A friendlier overview of the architecture lives on the [project site](https://daltongoo.github.io/Revit-Orchestrator/).
 
 ## Quick start
 
@@ -76,8 +76,6 @@ python -m orchestrator.server
 ```
 
 Then open Revit and click the **Orchestrator** panel in the ribbon.
-
-The full setup guide is at [docs/getting-started.html](https://daltongoo.github.io/Revit-Orchestrator/getting-started.html).
 
 ### Packaged install (no toolchain required)
 
@@ -123,18 +121,13 @@ A tool is a JSON file in `src/mcp-server/orchestrator/tools/`:
 }
 ```
 
-For more, see [Adding tools](https://daltongoo.github.io/Revit-Orchestrator/adding-tools.html) or the full [Tool developer guide](https://daltongoo.github.io/Revit-Orchestrator/tool-developer-guide.html).
+Sample tools live in [`tools/c#/`](tools/c%23/), [`tools/pyrevit/`](tools/pyrevit/), and [`tools/dynamo/`](tools/dynamo/). Each is a small file plus a sibling JSON tool definition under `src/mcp-server/orchestrator/tools/`.
 
 ## Documentation
 
-- [Project site](https://daltongoo.github.io/Revit-Orchestrator/) — landing page
-- [Architecture](https://daltongoo.github.io/Revit-Orchestrator/architecture.html)
-- [Getting started](https://daltongoo.github.io/Revit-Orchestrator/getting-started.html)
-- [Adding tools](https://daltongoo.github.io/Revit-Orchestrator/adding-tools.html)
-- [Tool developer guide](https://daltongoo.github.io/Revit-Orchestrator/tool-developer-guide.html)
-- [MCP connections](https://daltongoo.github.io/Revit-Orchestrator/mcp-connections.html) — connect to external MCP servers
-
-Source markdown for the docs lives in [`docs/`](docs/) alongside the rendered HTML.
+- [Project site](https://daltongoo.github.io/Revit-Orchestrator/) — friendly landing page
+- This README — install + the tool-def shape above
+- The source: dispatcher in `src/mcp-server/orchestrator/dispatcher/`, adapters in `src/mcp-server/orchestrator/adapters/`, schema in `contracts/tool-definition.schema.json`
 
 ## Repository layout
 
